@@ -84,16 +84,30 @@ class eosdaq : public eosio::contract {
         eosio_assert( is_account( name ), "to account does not exist");
 
         if(orderType == 0){//bid
-          auto bid_price_idx = bid_table.find(orderId);
-          eosio_assert(bid_price_idx != bid_table.end(), "order Id does not exist");
+          auto bid_itr = bid_table.find(orderId);
+          eosio_assert(bid_itr != bid_table.end(), "order Id does not exist");
 
-          bid_table.erase(bid_price_idx);
+          eosio::print("cancel bid => from: ",_self, " to: ", bid_itr->name, " quantity: ", bid_itr->quantity, " memo: ", bid_itr->name, "\n");
+          action(
+            permission_level{ _self, N(active) },
+            N(eosio.token), N(transfer),
+            std::make_tuple(_self, bid_itr->name, bid_itr->quantity, bid_itr->name)
+          ).send();
+
+          bid_table.erase(bid_itr);
 
         }else if(orderType == 1){//ask
-          auto ask_price_idx = ask_table.find(orderId);
-          eosio_assert(ask_price_idx != ask_table.end(), "order Id does not exist");
+          auto ask_itr = ask_table.find(orderId);
+          eosio_assert(ask_itr != ask_table.end(), "order Id does not exist");
 
-          ask_table.erase(ask_price_idx);
+          eosio::print("cancel ask => from: ",_self, " to: ", ask_itr->name, " quantity: ", ask_itr->quantity, " memo: ", ask_itr->name, "\n");
+          action(
+            permission_level{ _self, N(active) },
+            N(eosio.token), N(transfer),
+            std::make_tuple(_self, ask_itr->name, ask_itr->quantity, ask_itr->name)
+          ).send();
+
+          ask_table.erase(ask_itr);
         }
       }
 
@@ -106,7 +120,7 @@ class eosdaq : public eosio::contract {
        account_name      name;
        uint64_t          price;
        asset             quantity;
-       micro_time              ordertime;
+       micro_time        ordertime;
 
        uint64_t primary_key()const { return id; }
        uint64_t by_price()const{ return price; }
