@@ -73,6 +73,11 @@ cleos push action eosio.token issue '[ "newrotaker", "1000000.0000 ABC", "memo" 
 cleos transfer newrotaker eosdaq "10.0000 ABC" "30" -p newrotaker
 cleos transfer newrovp eosdaq "10.0000 SYS" "30" -p newrovp
 
+cleos push action eosdaq enroll '[ "eosdaq", "newrotaker" ]' -p eosdaq@active
+cleos get table eosdaq eosdaq staccount
+cleos push action eosdaq enroll '[ "eosdaq", "newrovp" ]' -p eosdaq@active
+cleos get table eosdaq eosdaq staccount
+
 if [ -f local_init_extra.sh ]; then
     local_init_extra.sh
 fi

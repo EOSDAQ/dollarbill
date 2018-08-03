@@ -35,18 +35,32 @@ class eosdaq : public eosio::contract {
 //       memo_table(_self, _self)
 
 
-       void enroll(const account_name name){
-         eosio_assert( is_account( name ), "to account does not exist");
+       void enroll(const account_name owner, const account_name name){
+         require_auth(owner);
+         eosio_assert( owner == _self, "not authorized");
+         eosio_assert( is_account( name ), "not an account");
+
+         auto itr = account_table.find(name);
+         eosio_assert(itr == account_table.end(), "existing account");
          account_table.emplace(_self, [&](auto& o){
-            o.id = account_table.available_primary_key();;
+            //o.id = account_table.available_primary_key();;
             o.name = name;
          });
+
+
+
        }
 
-       void drop(const account_name name){
+       void drop(const account_name owner, const account_name name){
+         require_auth(owner);
+         eosio_assert( owner == _self, "not authorized");
          eosio_assert( is_account( name ), "to account does not exist");
+
          auto itr = account_table.find(name);
+         eosio_assert(itr != account_table.end(), "existing account");
+
          account_table.erase(itr);
+
        }
 
        void deletetransx(const account_name name, const uint64_t baseId, const uint64_t endId){
@@ -152,18 +166,16 @@ class eosdaq : public eosio::contract {
 
      //@abi table staccount i64
      struct staccount{
-       uint64_t          id;
+       //uint64_t          id;
        account_name      name;
 
-       uint64_t primary_key()const { return id; }
-       uint64_t by_name()const{ return name; }
+       account_name primary_key()const { return name; }
+       //uint64_t by_name()const{ return name; }
 
-       EOSLIB_SERIALIZE( staccount, (id)(name) )
+       EOSLIB_SERIALIZE( staccount, (name) )
      };
 
-     typedef eosio::multi_index< N(staccount), staccount,
-        indexed_by< N(name), const_mem_fun<staccount, uint64_t, &staccount::by_name > >
-     > account_index;
+     typedef eosio::multi_index< N(staccount), staccount > account_index;
 
       //@abi table tx i64
       struct tx {
