@@ -63,7 +63,7 @@ class eosdaq_acnt : public eosio::contract {
              N(eosdaq), N(triggerorder),
              std::make_tuple(true, from, to, quantity, memo)
            ).send();
-           eosio::print("check -> trigger: true\n");
+           eosio::print("check -> trigger: true action sent\n");
          }else{
            eosio::print("check -> trigger: false\n");
            action(
@@ -71,6 +71,7 @@ class eosdaq_acnt : public eosio::contract {
              N(eosdaq), N(triggerorder),
              std::make_tuple(false, from, to, quantity, memo)
            ).send();
+           eosio::print("check -> trigger: false action sent\n");
          }
          //eosio_assert(itr != account_table.end(), "existing account");
 

@@ -36,7 +36,7 @@
  (table 4 4 anyfunc)
  (elem (i32.const 0) $__wasm_nullptr $_ZN11eosdaq_acnt5checkEyyN5eosio5assetENSt3__112basic_stringIcNS2_11char_traitsIcEENS2_9allocatorIcEEEE $_ZN11eosdaq_acnt6enrollEyy $_ZN11eosdaq_acnt4dropEyy)
  (memory $0 1)
- (data (i32.const 4) "Pe\00\00")
+ (data (i32.const 4) "\b0e\00\00")
  (data (i32.const 16) "onerror\00")
  (data (i32.const 32) "eosio\00")
  (data (i32.const 48) "onerror action\'s are only valid from the \"eosio\" system account\00")
@@ -71,11 +71,13 @@
  (data (i32.const 944) "active\00")
  (data (i32.const 960) "eosdaq\00")
  (data (i32.const 976) "triggerorder\00")
- (data (i32.const 992) "check -> trigger: false\n\00")
- (data (i32.const 1024) ".\00")
- (data (i32.const 1040) " \00")
- (data (i32.const 1056) ",\00")
- (data (i32.const 9456) "malloc_from_freed was designed to only be called after _heap was completely allocated\00")
+ (data (i32.const 992) "check -> trigger: true action sent\n\00")
+ (data (i32.const 1040) "check -> trigger: false\n\00")
+ (data (i32.const 1072) "check -> trigger: false action sent\n\00")
+ (data (i32.const 1120) ".\00")
+ (data (i32.const 1136) " \00")
+ (data (i32.const 1152) ",\00")
+ (data (i32.const 9552) "malloc_from_freed was designed to only be called after _heap was completely allocated\00")
  (export "memory" (memory $0))
  (export "_ZeqRK11checksum256S1_" (func $_ZeqRK11checksum256S1_))
  (export "_ZeqRK11checksum160S1_" (func $_ZeqRK11checksum160S1_))
@@ -1941,7 +1943,7 @@
         (br $label$5)
        )
        (call $prints
-        (i32.const 992)
+        (i32.const 1040)
        )
        (set_local $8
         (i64.load
@@ -2688,7 +2690,7 @@
       )
      )
      (call $prints
-      (i32.const 832)
+      (i32.const 992)
      )
      (br $label$2)
     )
@@ -2815,23 +2817,28 @@
      (get_local $10)
     )
    )
-   (br_if $label$2
-    (i32.eqz
-     (i32.and
-      (i32.load8_u
-       (i32.add
-        (get_local $17)
-        (i32.const 40)
+   (block $label$63
+    (br_if $label$63
+     (i32.eqz
+      (i32.and
+       (i32.load8_u
+        (i32.add
+         (get_local $17)
+         (i32.const 40)
+        )
        )
+       (i32.const 1)
       )
-      (i32.const 1)
+     )
+    )
+    (call $_ZdlPv
+     (i32.load offset=48
+      (get_local $17)
      )
     )
    )
-   (call $_ZdlPv
-    (i32.load offset=48
-     (get_local $17)
-    )
+   (call $prints
+    (i32.const 1072)
    )
   )
   (i32.store offset=4
@@ -6268,14 +6275,14 @@
    )
   )
   (call $prints
-   (i32.const 1024)
+   (i32.const 1120)
   )
   (call $prints_l
    (get_local $2)
    (get_local $3)
   )
   (call $prints
-   (i32.const 1040)
+   (i32.const 1136)
   )
   (call $_ZNK5eosio11symbol_type5printEb
    (get_local $1)
@@ -7437,7 +7444,7 @@
     )
    )
    (call $prints
-    (i32.const 1056)
+    (i32.const 1152)
    )
   )
   (i32.store8 offset=15
@@ -7635,7 +7642,7 @@
  )
  (func $malloc (param $0 i32) (result i32)
   (call $_ZN5eosio14memory_manager6mallocEm
-   (i32.const 1060)
+   (i32.const 1156)
    (get_local $0)
   )
  )
@@ -7880,7 +7887,7 @@
          )
         )
        )
-       (i32.const 9456)
+       (i32.const 9552)
       )
       (set_local $13
        (i32.add
@@ -8104,13 +8111,13 @@
    (block $label$1
     (br_if $label$1
      (i32.eqz
-      (i32.load8_u offset=9542
+      (i32.load8_u offset=9638
        (i32.const 0)
       )
      )
     )
     (set_local $7
-     (i32.load offset=9544
+     (i32.load offset=9640
       (i32.const 0)
      )
     )
@@ -8119,11 +8126,11 @@
    (set_local $7
     (current_memory)
    )
-   (i32.store8 offset=9542
+   (i32.store8 offset=9638
     (i32.const 0)
     (i32.const 1)
    )
-   (i32.store offset=9544
+   (i32.store offset=9640
     (i32.const 0)
     (tee_local $7
      (i32.shl
@@ -8174,7 +8181,7 @@
        )
       )
       (set_local $3
-       (i32.load offset=9544
+       (i32.load offset=9640
         (i32.const 0)
        )
       )
@@ -8182,7 +8189,7 @@
      (set_local $8
       (i32.const 0)
      )
-     (i32.store offset=9544
+     (i32.store offset=9640
       (i32.const 0)
       (get_local $3)
      )
@@ -8236,18 +8243,18 @@
      )
      (block $label$6
       (br_if $label$6
-       (i32.load8_u offset=9542
+       (i32.load8_u offset=9638
         (i32.const 0)
        )
       )
       (set_local $3
        (current_memory)
       )
-      (i32.store8 offset=9542
+      (i32.store8 offset=9638
        (i32.const 0)
        (i32.const 1)
       )
-      (i32.store offset=9544
+      (i32.store offset=9640
        (i32.const 0)
        (tee_local $3
         (i32.shl
@@ -8315,12 +8322,12 @@
        )
       )
       (set_local $6
-       (i32.load offset=9544
+       (i32.load offset=9640
         (i32.const 0)
        )
       )
      )
-     (i32.store offset=9544
+     (i32.store offset=9640
       (i32.const 0)
       (i32.add
        (get_local $6)
@@ -8580,7 +8587,7 @@
     (br_if $label$1
      (i32.lt_s
       (tee_local $2
-       (i32.load offset=9444
+       (i32.load offset=9540
         (i32.const 0)
        )
       )
@@ -8588,7 +8595,7 @@
      )
     )
     (set_local $3
-     (i32.const 9252)
+     (i32.const 9348)
     )
     (set_local $1
      (i32.add
@@ -8596,7 +8603,7 @@
        (get_local $2)
        (i32.const 12)
       )
-      (i32.const 9252)
+      (i32.const 9348)
      )
     )
     (loop $label$2
@@ -8688,7 +8695,7 @@
     (br_if $label$0
      (i32.eqz
       (tee_local $2
-       (i32.load offset=9548
+       (i32.load offset=9644
         (i32.const 0)
        )
       )
