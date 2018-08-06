@@ -26,7 +26,6 @@ class eosdaq : public eosio::contract {
 
        bid_table(_self, _self),
        ask_table(_self, _self),
-       account_table(_self, _self),
 
 //       bid_match_table(_self, _self),
 //       ask_match_table(_self, _self),
@@ -35,33 +34,6 @@ class eosdaq : public eosio::contract {
 //       memo_table(_self, _self)
 
 
-       void enroll(const account_name owner, const account_name name){
-         require_auth(owner);
-         eosio_assert( owner == _self, "not authorized");
-         eosio_assert( is_account( name ), "not an account");
-
-         auto itr = account_table.find(name);
-         eosio_assert(itr == account_table.end(), "existing account");
-         account_table.emplace(_self, [&](auto& o){
-            //o.id = account_table.available_primary_key();;
-            o.name = name;
-         });
-
-
-
-       }
-
-       void drop(const account_name owner, const account_name name){
-         require_auth(owner);
-         eosio_assert( owner == _self, "not authorized");
-         eosio_assert( is_account( name ), "to account does not exist");
-
-         auto itr = account_table.find(name);
-         eosio_assert(itr != account_table.end(), "existing account");
-
-         account_table.erase(itr);
-
-       }
 
        void deletetransx(const account_name name, const uint64_t baseId, const uint64_t endId){
          require_auth( name );
@@ -80,18 +52,37 @@ class eosdaq : public eosio::contract {
          }
        }
 
-     void transfer(uint64_t sender, uint64_t receiver) {
-     	    auto transfer_data = eosio::unpack_action_data<st_transfer>();
-     	    if(transfer_data.from == _self || transfer_data.to != _self) {
-     	        return;
-     	    }
+      void transfer(uint64_t sender, uint64_t receiver) { //1
+        auto transfer_data = eosio::unpack_action_data<st_transfer>();
+        if(transfer_data.from == _self || transfer_data.to != _self) {
+            return;
+        }
 
-           if(transfer_data.quantity.symbol == S(4, SYS)){
-             bidorder(transfer_data.from, stoi(transfer_data.memo), transfer_data.quantity);
-           }else{  // TODO: chanage else to elseif
-             askorder(transfer_data.from, stoi(transfer_data.memo), transfer_data.quantity);
-           }
-      	}
+        eosio::print(" transfer listened", "\n");
+        eosio::print("from: ", transfer_data.from, " to: ", transfer_data.to, " quantity: ", transfer_data.quantity, " memo: ", transfer_data.memo, "\n");
+        action(
+          permission_level{ _self, N(active) },
+          N(eosdaqacnt), N(check),
+          std::make_tuple(transfer_data.from, transfer_data.to, transfer_data.quantity, transfer_data.memo)
+        ).send();
+      }
+
+      void triggerorder(bool check, account_name from, account_name to, asset quantity, string memo){  //3
+        //auto transfer_data = eosio::unpack_action_data<st_result>();
+        eosio::print("check: ", check, " from: ", from, " to: ", to, " quantity: ", quantity, " memo: ", memo, "\n");
+        eosio::print("self: ", _self, " triggerorder listend", "\n");
+
+
+        eosio_assert( check, "account does not exist");
+
+        if(quantity.symbol == S(4, SYS)){
+          eosio::print("bid order\n");
+          bidorder(from, stoi(memo), quantity);
+        }else{// if(quantity.symbol == S(4, ABC)){
+          eosio::print("ask order\n");
+          askorder(from, stoi(memo), quantity);
+        }
+      }
 
       void cancelorder(const account_name name, const uint64_t orderId, const uint64_t orderType)  {
         require_auth( name );
@@ -105,7 +96,7 @@ class eosdaq : public eosio::contract {
           action(
             permission_level{ _self, N(active) },
             N(eosio.token), N(transfer),
-            std::make_tuple(_self, bid_itr->name, bid_itr->quantity, bid_itr->name)
+            std::make_tuple(_self, bid_itr->name, bid_itr->quantity, N(eosdaq))
           ).send();
 
           bid_table.erase(bid_itr);
@@ -118,7 +109,7 @@ class eosdaq : public eosio::contract {
           action(
             permission_level{ _self, N(active) },
             N(eosio.token), N(transfer),
-            std::make_tuple(_self, ask_itr->name, ask_itr->quantity, ask_itr->name)
+            std::make_tuple(_self, ask_itr->name, ask_itr->quantity, N(eosdaq))
           ).send();
 
           ask_table.erase(ask_itr);
@@ -127,6 +118,14 @@ class eosdaq : public eosio::contract {
 
    private:
      typedef uint64_t micro_time;
+
+     struct st_result{
+       bool check;
+       account_name from;
+       account_name to;
+       asset quantity;
+       string memo;
+     };
 
      //@abi table stbid i64
      struct stbid{
@@ -207,7 +206,6 @@ class eosdaq : public eosio::contract {
       //create index tables
       bid_index         bid_table;
       ask_index         ask_table;
-      account_index     account_table;
       tx_index          tx_table;
 
       void removebid(uint64_t id){
@@ -236,7 +234,7 @@ class eosdaq : public eosio::contract {
 */
       //insert record to match table and send tokens to maker's account
       void bidtaker_xf( const account_name from, const account_name to, const asset quote_quantity, const asset quantity, const uint64_t order_id ) {
-        require_auth(from);
+        //require_auth(from);
         eosio_assert( is_account( to ), "to account does not exist");
         eosio_assert( quantity.is_valid(), "invalid quantity" );
         eosio_assert( quantity.amount > 0, "must deposit positive quantity" );
@@ -283,7 +281,7 @@ class eosdaq : public eosio::contract {
 */
       //insert record to match table and send tokens to maker's account
       void asktaker_xf( const account_name from, const account_name to, const asset base_quantity, const asset quantity, const uint64_t order_id ) {
-        require_auth(from);
+        //require_auth(from);
         eosio_assert( is_account( to ), "to account does not exist");
         eosio_assert( quantity.is_valid(), "invalid quantity" );
         eosio_assert( quantity.amount > 0, "must deposit positive quantity" );
@@ -320,7 +318,7 @@ class eosdaq : public eosio::contract {
       }
 
       void bidorder(const account_name name, const uint64_t price, const asset quantity){
-        require_auth( name );
+        //require_auth( name );
         eosio_assert( is_account( name ), "to account does not exist");
         eosio_assert( price > 0, "invalid price" );
         eosio_assert( quantity.is_valid(), "invalid quantity" );
@@ -469,7 +467,7 @@ class eosdaq : public eosio::contract {
       }
 
       void askorder(const account_name name, const uint64_t price, const asset quantity){
-        require_auth( name );
+        //require_auth( name );
         eosio_assert( is_account( name ), "to account does not exist");
         eosio_assert( price > 0, "invalid price" );
         eosio_assert( quantity.is_valid(), "invalid quantity" );
@@ -614,7 +612,7 @@ class eosdaq : public eosio::contract {
 
 };
 
-
+#if 1
 #define EOSIO_ABI_EX( TYPE, MEMBERS ) \
 	extern "C" { \
 	   void apply( uint64_t receiver, uint64_t code, uint64_t action ) { \
@@ -633,5 +631,7 @@ class eosdaq : public eosio::contract {
 	   } \
 	}
 
-	EOSIO_ABI_EX( eosdaq, (transfer)(cancelorder)(enroll)(drop)(deletetransx) )
-//EOSIO_ABI( eosdaq, (cancelorder)(enroll)(drop)(deletetransx) )
+	EOSIO_ABI_EX( eosdaq, (triggerorder)(transfer)(cancelorder)(deletetransx) )
+#else
+EOSIO_ABI( eosdaq, (cancelorder)(deletetransx) )
+#endif
