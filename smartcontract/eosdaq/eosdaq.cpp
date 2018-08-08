@@ -4,15 +4,18 @@
  **/
 #include <eosiolib/crypto.h>
 #include <eosiolib/types.hpp>
-#include <eosiolib/print.hpp>
-#include <eosiolib/action.hpp>
+//#include <eosiolib/print.hpp>
+//#include <eosiolib/action.hpp>
 #include <eosiolib/multi_index.hpp>
 #include <eosiolib/contract.hpp>
 #include <eosiolib/currency.hpp>
 #include <eosio.system/eosio.system.hpp>
+#include <math.h>
 
-#define BASETOKEN S(4, SYS)
-#define QUOTETOKEN S(4, ABC)
+#define PRECISION 4
+#define BASETOKEN S(PRECISION, SYS)
+#define QUOTETOKEN S(PRECISION, ABC)
+#define DECIMALS pow(10, PRECISION)
 #define FEERATE 0.001
 
 #define LOG
@@ -29,7 +32,6 @@ class eosdaq : public eosio::contract {
    public:
       eosdaq(account_name self)
       :eosio::contract(self),
-
        bid_table(_self, _self),
        ask_table(_self, _self),
        tx_table(_self, _self){}
@@ -61,30 +63,35 @@ class eosdaq : public eosio::contract {
         eosio::print(" transfer listened", "\n");
         eosio::print("from: ", transfer_data.from, " to: ", transfer_data.to, " quantity: ", transfer_data.quantity, " memo: ", transfer_data.memo, "\n");
 #endif
+        string* token = stringSplit(transfer_data.memo,".");
+        uint64_t price = stoi(token[0]) * DECIMALS + stoi(token[1]);
+#ifdef LOG
+        eosio::print("price: ", price, "\n");
+#endif
         action(
           permission_level{ _self, N(active) },
           N(eosdaqacnt), N(check),
-          std::make_tuple(transfer_data.from, transfer_data.to, transfer_data.quantity, transfer_data.memo)
+          std::make_tuple(transfer_data.from, transfer_data.to, transfer_data.quantity, price)
         ).send();
       }
 
-      void triggerorder(bool check, account_name from, account_name to, asset quantity, string memo){  //3
+      void triggerorder(bool check, account_name from, account_name to, asset quantity, uint64_t price){  //3
 #ifdef LOG
-        eosio::print("check: ", check, " from: ", from, " to: ", to, " quantity: ", quantity, " memo: ", memo, "\n");
+        eosio::print("check: ", check, " from: ", from, " to: ", to, " quantity: ", quantity, " price: ", price, "\n");
         eosio::print("self: ", _self, " triggerorder listend", "\n");
 #endif
-        if(check == false){
+        if(check == true){
+          if(quantity.symbol == BASETOKEN){
+            bidorder(from, price, quantity); //TODO: memo should be float
+          }else if(quantity.symbol == QUOTETOKEN){
+            askorder(from, price, quantity);
+          }
+        }else{
           action(
             permission_level{ _self, N(active) },
-            N(eosdaqacnt), N(check),
-            std::make_tuple(_self, from, quantity, "refund")
+            N(eosio.token), N(transfer),
+            std::make_tuple(_self, from, quantity, std::string("refund"))
           ).send();
-        }else{
-          if(quantity.symbol == BASETOKEN){
-            bidorder(from, stoi(memo), quantity); //TODO: memo should be float
-          }else if(quantity.symbol == QUOTETOKEN){
-            askorder(from, stoi(memo), quantity);
-          }
         }
       }
 
@@ -206,6 +213,24 @@ class eosdaq : public eosio::contract {
       ask_index         ask_table;
       tx_index          tx_table;
 
+      string* stringSplit(string strTarget, string strTok){
+        int nCutPos;
+        int nIndex=0;
+        string* strResult = new string[3];
+
+        while((nCutPos = strTarget.find_first_of(strTok)) != strTarget.npos){
+          if(nCutPos > 0){
+            strResult[nIndex++] = strTarget.substr(0, nCutPos);
+          }
+          strTarget = strTarget.substr(nCutPos+1);
+        }
+
+        if(strTarget.length() > 0){
+          strResult[nIndex++] = strTarget.substr(0, nCutPos);
+        }
+        return strResult;
+      }
+
       //insert record to match table and send tokens to maker's account
       void bidtaker_xfer( const account_name from, const account_name to, const asset quote_quantity, const asset quantity, const uint64_t order_id ) {
         eosio_assert( is_account( to ), "to account does not exist");
@@ -286,7 +311,7 @@ class eosdaq : public eosio::contract {
 
       void bidorder(const account_name name, const uint64_t price, const asset quantity){
         eosio_assert( is_account( name ), "to account does not exist");
-        eosio_assert( price > 0, "invalid price" );
+        eosio_assert( price > 0, "must transfer positive price" );
         eosio_assert( quantity.is_valid(), "invalid quantity" );
         eosio_assert( quantity.amount > 0, "must transfer positive quantity" );
 
@@ -315,20 +340,20 @@ class eosdaq : public eosio::contract {
 #endif
         //1. bidding price >= ask lowest price : match -> 1) erase ask(bidder=taker) 2) create bid order after erase ask(bidder=maker after taking)
         if( price >= lowest_ask_price ){
-            auto total_bidding_value = quantity.amount; //SYS
+            uint64_t total_bidding_value = quantity.amount; //SYS
 #ifdef LOG
             eosio::print("entering price >= lowest_ask_price", "\n");
             eosio::print("total_bidding_value(SYS): ", total_bidding_value, "\n");
             eosio::print("amount: ", ask_itr->quantity.amount," price: ", ask_itr->price," value: ", (ask_itr->quantity.amount * ask_itr->price),"\n");
 #endif
             //bidder is taker
-           while( ((total_bidding_value / ask_itr-> price) >= ask_itr->quantity.amount) && (price >= ask_itr->price)){
+           while( (((total_bidding_value * DECIMALS) / ask_itr-> price) >= ask_itr->quantity.amount) && (price >= ask_itr->price)){
 #ifdef LOG
               eosio::print("id: ",ask_itr->id ,", amount: ", ask_itr->quantity.amount," price: ", ask_itr->price," value: ",ask_itr->quantity.amount,"\n");
 #endif
-              uint64_t bidding_value = ask_itr->quantity.amount; //DAQ
+              //uint64_t bidding_value = ask_itr->quantity.amount; //DAQ
 
-              asset matched_base = asset(ask_itr->quantity.amount / ask_itr->price, BASETOKEN);
+              asset matched_base = asset((ask_itr->quantity.amount * DECIMALS) / ask_itr->price, BASETOKEN);
               asset matched_quote = asset(ask_itr->quantity.amount, QUOTETOKEN);
 
 #ifdef LOG
@@ -337,7 +362,7 @@ class eosdaq : public eosio::contract {
 #endif
               bidtaker_xfer(name, ask_itr->name, matched_quote, matched_base, ask_itr->id);
 
-              if(matched_quote.amount < ask_itr->quantity.amount){
+              if(matched_quote < ask_itr->quantity){
                 ask_price_idx.modify(ask_itr, 0, [&](auto& o){
                   o.quantity -= matched_quote;
                 });
@@ -347,7 +372,7 @@ class eosdaq : public eosio::contract {
               }
 
               //total_bidding_value -= bidding_value;
-              total_bidding_value = ( (total_bidding_value / ask_itr->price) - ask_itr->quantity.amount) * ask_itr->price;
+              total_bidding_value = ( ((total_bidding_value * DECIMALS) / ask_itr->price) - ask_itr->quantity.amount) * ask_itr->price / DECIMALS;
 #ifdef LOG
               eosio::print("total_bidding_value: ", total_bidding_value, "\n");
 #endif
@@ -445,19 +470,19 @@ class eosdaq : public eosio::contract {
 #endif
         //1. asking price <= bid highest price : match -> 1) erase ask(asker is taker) 2) create bid order after erase ask(asker is maker after taking)
         if( price <= highest_bid_price ){
-          auto total_asking_value = quantity.amount;  //total DAQ value
+          uint64_t total_asking_value = quantity.amount;  //total DAQ value
 #ifdef LOG
           eosio::print("total_asking_value: ", total_asking_value, "\n");
           eosio::print("amount: ", bid_itr->quantity.amount," price: ", bid_itr->price," value: ",bid_itr->quantity.amount,"\n");
 #endif
           //asker is taker
-          while( (total_asking_value >= (bid_itr->quantity.amount / bid_itr->price)) && (price <= bid_itr->price)){
+          while( (total_asking_value >= ((bid_itr->quantity.amount * DECIMALS) / bid_itr->price)) && (price <= bid_itr->price)){
 #ifdef LOG
             eosio::print("id: ",bid_itr->id ,", amount: ", bid_itr->quantity.amount," price: ", bid_itr->price," value: ",bid_itr->quantity.amount,"\n");
 #endif
-            uint64_t asking_value = bid_itr->quantity.amount;  //DAQ
+            //uint64_t asking_value = bid_itr->quantity.amount;  //DAQ
             asset matched_base = asset(bid_itr->quantity.amount, BASETOKEN);
-            asset matched_quote = asset(bid_itr->quantity.amount / bid_itr->price, QUOTETOKEN);
+            asset matched_quote = asset((bid_itr->quantity.amount * DECIMALS) / bid_itr->price, QUOTETOKEN);
 
 #ifdef LOG
             eosio::print("Base ", "symbol: ", matched_base.symbol, ", amount: ", matched_base.amount, "\n");
@@ -475,7 +500,7 @@ class eosdaq : public eosio::contract {
               bid_table.erase(itr);
             }
 
-            total_asking_value = total_asking_value - (bid_itr->quantity.amount / bid_itr->price );
+            total_asking_value = total_asking_value - ((bid_itr->quantity.amount * DECIMALS) / bid_itr->price );
 #ifdef LOG
             eosio::print("total_asking_value: ", total_asking_value, "\n");
 #endif
@@ -527,26 +552,40 @@ class eosdaq : public eosio::contract {
       }
 };
 
-#if 1
-#define EOSIO_ABI_EX( TYPE, MEMBERS ) \
-	extern "C" { \
-	   void apply( uint64_t receiver, uint64_t code, uint64_t action ) { \
-	      if( action == N(onerror)) { \
-	         /* onerror is only valid if it is for the "eosio" code account and authorized by "eosio"'s "active permission */ \
-	         eosio_assert(code == N(eosio), "onerror action's are only valid from the \"eosio\" system account"); \
-	      } \
-	      auto self = receiver; \
-	      if( code == self || code == N(eosio.token) || action == N(onerror) ) { \
-	         TYPE thiscontract( self ); \
-	         switch( action ) { \
-	            EOSIO_API( TYPE, MEMBERS ) \
-	         } \
-	         /* does not allow destructor of thiscontract to run: eosio_exit(0); */ \
-	      } \
-	   } \
-	}
+#define EOSIO_ABI( TYPE, MEMBERS ) \
+  extern "C" { \
+     void apply( uint64_t receiver, uint64_t code, uint64_t action ) { \
+        if( action == N(onerror)) { \
+           /* onerror is only valid if it is for the "eosio" code account and authorized by "eosio"'s "active permission */ \
+           eosio_assert(code == N(eosio), "onerror action's are only valid from the \"eosio\" system account"); \
+        } \
+        auto self = receiver; \
+        if( code == self || code == N(eosio.token) || action == N(onerror) ) { \
+           TYPE thiscontract( self ); \
+           switch( action ) { \
+              EOSIO_API( TYPE, MEMBERS ) \
+           } \
+           /* does not allow destructor of thiscontract to run: eosio_exit(0); */ \
+        } \
+     } \
+  }
 
-	EOSIO_ABI_EX( eosdaq, (triggerorder)(transfer)(cancelorder)(deletetransx) )
-#else
-EOSIO_ABI( eosdaq, (cancelorder)(deletetransx) )
-#endif
+  EOSIO_ABI( eosdaq, (triggerorder)(transfer)(cancelorder)(deletetransx) )
+
+#define EOSIO_ABI( TYPE, MEMBERS ) \
+extern "C" { \
+   void apply( uint64_t receiver, uint64_t code, uint64_t action ) { \
+      auto self = receiver; \
+      if( action == N(onerror)) { \
+         /* onerror is only valid if it is for the "eosio" code account and authorized by "eosio"'s "active permission */ \
+         eosio_assert(code == N(eosio), "onerror action's are only valid from the \"eosio\" system account"); \
+      } \
+      if( code == self || action == N(onerror) ) { \
+         TYPE thiscontract( self ); \
+         switch( action ) { \
+            EOSIO_API( TYPE, MEMBERS ) \
+         } \
+         /* does not allow destructor of thiscontract to run: eosio_exit(0); */ \
+      } \
+   } \
+}

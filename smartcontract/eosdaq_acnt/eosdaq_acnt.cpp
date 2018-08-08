@@ -11,6 +11,8 @@
 #include <eosiolib/currency.hpp>
 #include <eosio.system/eosio.system.hpp>
 
+//#define LOG
+
 using eosio::permission_level;
 using eosio::action;
 using eosio::asset;
@@ -31,7 +33,6 @@ class eosdaq_acnt : public eosio::contract {
          auto itr = account_table.find(name);
          eosio_assert(itr == account_table.end(), "existing account");
          account_table.emplace(_self, [&](auto& o){
-            //o.id = account_table.available_primary_key();;
             o.name = name;
          });
        }
@@ -47,35 +48,41 @@ class eosdaq_acnt : public eosio::contract {
          account_table.erase(itr);
        }
 
-       void check(account_name from, account_name to, asset quantity, string memo){  //2
+       void check(account_name from, account_name to, asset quantity, uint64_t price){  //2
          //eosio_assert( is_account( name ), "not an account");
          //auto check_data = eosio::unpack_action_data<st_check>();
-         eosio::print("check listend", " from : ", from, " to : ", to, " quantity : ", quantity, " memo : ", memo, "\n");
-
+#ifdef LOG
+         eosio::print("check listend", " from : ", from, " to : ", to, " quantity : ", quantity, " price : ", price, "\n");
+#endif
          auto itr = account_table.find(from);
          if(itr != account_table.end()){  //existing account
+#ifdef LOG
            eosio::print("check -> trigger: true\n");
            eosio::print("newrotaker: ", N(newrotaker),"\n");
            eosio::print("eosdaqacnt: ", N(eosdaqacnt),"\n");
            eosio::print("_self: ", _self,"\n");
+#endif
            action(
              permission_level{ _self, N(active) },
              N(eosdaq), N(triggerorder),
-             std::make_tuple(true, from, to, quantity, memo)
+             std::make_tuple(true, from, to, quantity, price)
            ).send();
+#ifdef LOG
            eosio::print("check -> trigger: true action sent\n");
+#endif
          }else{
+#ifdef LOG
            eosio::print("check -> trigger: false\n");
+#endif
            action(
              permission_level{ _self, N(active) },
              N(eosdaq), N(triggerorder),
-             std::make_tuple(false, from, to, quantity, memo)
+             std::make_tuple(false, from, to, quantity, price)
            ).send();
+#ifdef LOG
            eosio::print("check -> trigger: false action sent\n");
+#endif
          }
-         //eosio_assert(itr != account_table.end(), "existing account");
-
-
        }
 
    private:
@@ -83,7 +90,7 @@ class eosdaq_acnt : public eosio::contract {
        account_name from;
        account_name to;
        asset quantity;
-       string memo;
+       uint64_t price;
      };
 
      //@abi table staccount i64
