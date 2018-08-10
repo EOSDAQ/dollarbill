@@ -2,21 +2,22 @@
  *  @file
  *  @copyright defined in EOSDAQ.com
  **/
-#include <eosiolib/crypto.h>
-#include <eosiolib/types.hpp>
-#include <eosiolib/print.hpp>
-#include <eosiolib/action.hpp>
-#include <eosiolib/multi_index.hpp>
-#include <eosiolib/contract.hpp>
+//#include <eosiolib/crypto.h>
+//#include <eosiolib/types.hpp>
+//#include <eosiolib/print.hpp>
+//#include <eosiolib/action.hpp>
+//#include <eosiolib/multi_index.hpp>
+//#include <eosiolib/contract.hpp>
 #include <eosiolib/currency.hpp>
-#include <eosio.system/eosio.system.hpp>
+//#include <eosio.system/eosio.system.hpp>
 
-//#define LOG
+#define EXCHANGECONTRACT  N(eosseieossei)
+#define LOG
 
 using eosio::permission_level;
 using eosio::action;
 using eosio::asset;
-using eosio::string;
+//using eosio::string;
 
 class eosdaq_acnt : public eosio::contract {
    public:
@@ -64,7 +65,7 @@ class eosdaq_acnt : public eosio::contract {
 #endif
            action(
              permission_level{ _self, N(active) },
-             N(eosdaq), N(triggerorder),
+             EXCHANGECONTRACT, N(triggerorder),
              std::make_tuple(true, from, to, quantity, price)
            ).send();
 #ifdef LOG
@@ -76,7 +77,7 @@ class eosdaq_acnt : public eosio::contract {
 #endif
            action(
              permission_level{ _self, N(active) },
-             N(eosdaq), N(triggerorder),
+             EXCHANGECONTRACT, N(triggerorder),
              std::make_tuple(false, from, to, quantity, price)
            ).send();
 #ifdef LOG
