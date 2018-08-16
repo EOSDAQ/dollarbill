@@ -67,10 +67,14 @@ class eosdaq : public eosio::contract {
         eosio::print("from: ", transfer_data.from, " to: ", transfer_data.to, " quantity: ", transfer_data.quantity, " memo: ", transfer_data.memo, "\n");
 #endif
         string* token = stringSplit(transfer_data.memo,".");
-        uint64_t price = stoi(token[0]) * DECIMALS + stoi(token[1]);
+        eosio::print("integer: ", token[0], " decimal: ", token[1],"\n");
+
+        uint64_t price = stoi(token[0]) * DECIMALS + stoi(token[1]) * 1;
 #ifdef LOG
-        eosio::print("price: ", price, "\n");
+        eosio::print("price: ", price);
 #endif
+        eosio_assert(price > 0, "invalid price");
+
         action(
           permission_level{ _self, N(active) },
           ACCOUNTCONTRACT, N(checkipos),
