@@ -49,41 +49,12 @@ class eosdaq_acnt : public eosio::contract {
          account_table.erase(itr);
        }
 
-       void check(account_name from, account_name to, asset quantity, uint64_t price){  //2
-         //eosio_assert( is_account( name ), "not an account");
-         //auto check_data = eosio::unpack_action_data<st_check>();
-#ifdef LOG
-         eosio::print("check listend", " from : ", from, " to : ", to, " quantity : ", quantity, " price : ", price, "\n");
-#endif
-         auto itr = account_table.find(from);
-         if(itr != account_table.end()){  //existing account
-#ifdef LOG
-           eosio::print("check -> trigger: true\n");
-           eosio::print("newrotaker: ", N(newrotaker),"\n");
-           eosio::print("eosdaqacnt: ", N(eosdaqacnt),"\n");
-           eosio::print("_self: ", _self,"\n");
-#endif
-           action(
-             permission_level{ _self, N(active) },
-             EXCHANGECONTRACT, N(triggerorder),
-             std::make_tuple(true, from, to, quantity, price)
-           ).send();
-#ifdef LOG
-           eosio::print("check -> trigger: true action sent\n");
-#endif
-         }else{
-#ifdef LOG
-           eosio::print("check -> trigger: false\n");
-#endif
-           action(
-             permission_level{ _self, N(active) },
-             EXCHANGECONTRACT, N(triggerorder),
-             std::make_tuple(false, from, to, quantity, price)
-           ).send();
-#ifdef LOG
-           eosio::print("check -> trigger: false action sent\n");
-#endif
-         }
+      void checkipos(const account_name from, const account_name to, const asset quantity, const uint64_t price){  //2
+         require_auth(EXCHANGECONTRACT);
+         eosio_assert( is_account( from ), "invalid account");
+         eosio_assert( to == EXCHANGECONTRACT, "failed" );
+
+         findaccount(from, to, quantity, price, EXCHANGECONTRACT );
        }
 
    private:
@@ -108,7 +79,38 @@ class eosdaq_acnt : public eosio::contract {
       //@seihyun create index tables
       account_index     account_table;
 
+      void findaccount(const account_name from, const account_name to, const asset quantity, const uint64_t price, const account_name req_name){
+        auto itr = account_table.find(from);
+        if(itr != account_table.end()){
+      #ifdef LOG
+         eosio::print("check -> trigger: true\n");
+         eosio::print("newrotaker: ", N(newrotaker),"\n");
+         eosio::print("eosdaqacnt: ", N(eosdaqacnt),"\n");
+         eosio::print("_self: ", _self,"\n");
+      #endif
+          action(
+            permission_level{ _self, N(active) },
+            req_name, N(triggerorder),
+            std::make_tuple(true, from, to, quantity, price)
+          ).send();
+      #ifdef LOG
+         eosio::print("check -> trigger: true action sent\n");
+      #endif
+        }else{
+      #ifdef LOG
+         eosio::print("check -> trigger: false\n");
+      #endif
+          action(
+            permission_level{ _self, N(active) },
+            req_name, N(triggerorder),
+            std::make_tuple(false, from, to, quantity, price)
+          ).send();
+      #ifdef LOG
+         eosio::print("check -> trigger: false action sent\n");
+      #endif
+        }
 
+      }
 };
 
-EOSIO_ABI( eosdaq_acnt, (check)(enroll)(drop) )
+EOSIO_ABI( eosdaq_acnt, (checkipos)(enroll)(drop) )

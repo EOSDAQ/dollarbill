@@ -13,14 +13,14 @@
 #include <math.h>
 
 #define PRECISION 4
-#define BASETOKEN S(PRECISION, EOS)
+#define BASETOKEN S(PRECISION, SYS)
 #define QUOTETOKEN S(PRECISION, IPOS)
 #define DECIMALS pow(10, PRECISION)
 #define FEERATE 0.001
 #define TOKENCONTRACT N(oo1122334455)
 #define ACCOUNTCONTRACT N(dollarbillgo)
 
-//#define LOG
+#define LOG
 #define SENDTOKEN
 
 using eosio::indexed_by;
@@ -73,7 +73,7 @@ class eosdaq : public eosio::contract {
 #endif
         action(
           permission_level{ _self, N(active) },
-          ACCOUNTCONTRACT, N(check),
+          ACCOUNTCONTRACT, N(checkipos),
           std::make_tuple(transfer_data.from, transfer_data.to, transfer_data.quantity, price)
         ).send();
       }
@@ -383,6 +383,11 @@ class eosdaq : public eosio::contract {
 #endif
               bidtaker_xfer(name, ask_itr->name, matched_quote, matched_base, ask_itr->id);
 
+              total_bidding_value = ( ((total_bidding_value * DECIMALS) / ask_itr->price) - ask_itr->quantity.amount) * ask_itr->price / DECIMALS;
+#ifdef LOG
+eosio::print("total bidding value: ", total_bidding_value, " price: ", ask_itr->price, " quantity: ", ask_itr->quantity, "\n");
+#endif
+
               if(matched_quote < ask_itr->quantity){
                 ask_price_idx.modify(ask_itr, 0, [&](auto& o){
                   o.quantity -= matched_quote;
@@ -394,22 +399,16 @@ class eosdaq : public eosio::contract {
 
               //total_bidding_value -= bidding_value;
 
-              total_bidding_value = ( ((total_bidding_value * DECIMALS) / ask_itr->price) - ask_itr->quantity.amount) * ask_itr->price / DECIMALS;
-#ifdef LOG
-              eosio::print("total bidding value: ", total_bidding_value, " price: ", ask_itr->price, " quantity: ", ask_itr->quantity, "\n");
-              eosio::print("total_bidding_value: ", total_bidding_value, "\n");
-#endif
-              ask_itr = ask_price_idx.end();
-              if(ask_itr != ask_price_idx.begin()){
-                ask_itr--;
-              }else{
 
+              ask_itr = ask_price_idx.begin();
+              if(ask_itr == ask_price_idx.end()){
+                break;
               }
             }
 
             //remaining bid amount
             if(total_bidding_value > 0){
-              if(ask_itr == ask_price_idx.end() || (price < ask_itr->price)){
+              if(price < ask_itr->price){
                 //add bid order to the bid tables(no matching ask orders), maker
                 uint64_t order_id = bid_table.available_primary_key();
                 bid_table.emplace(_self, [&](auto& o){
@@ -419,13 +418,13 @@ class eosdaq : public eosio::contract {
                     o.quantity = asset(total_bidding_value, quantity.symbol);
                     o.ordertime = current_time();
                 });
-              }else{
+              }else if(price >= ask_itr->price){
                 //bidder is still taker
 #ifdef LOG
                 eosio::print("remaining bid amount","\n");
 #endif
                 asset matched_base = asset(total_bidding_value, BASETOKEN);
-                asset matched_quote = asset(total_bidding_value * DECIMALS / price, QUOTETOKEN);
+                asset matched_quote = asset(total_bidding_value * DECIMALS / ask_itr->price, QUOTETOKEN);
 
 #ifdef LOG
                 eosio::print("base: ", matched_base, ", quote: ",matched_quote, "\n");
@@ -516,8 +515,13 @@ class eosdaq : public eosio::contract {
 #endif
             asktaker_xfer(name, bid_itr->name, matched_base, matched_quote, bid_itr->id);
 
+            total_asking_value = total_asking_value - ((bid_itr->quantity.amount * DECIMALS) / bid_itr->price );
+#ifdef LOG
+            eosio::print("total_asking_value: ", total_asking_value, "\n");
+#endif
             if(matched_base < bid_itr->quantity){
-              bid_price_idx.modify(bid_itr, 0, [&](auto& o){
+              auto itr = bid_table.find(bid_itr->id);
+              bid_table.modify(itr, 0, [&](auto& o){
                 o.quantity -= matched_base;
               });
             }else if(matched_base == bid_itr->quantity){
@@ -525,20 +529,32 @@ class eosdaq : public eosio::contract {
               bid_table.erase(itr);
             }
 
-            total_asking_value = total_asking_value - ((bid_itr->quantity.amount * DECIMALS) / bid_itr->price );
-#ifdef LOG
-            eosio::print("total_asking_value: ", total_asking_value, "\n");
-#endif
             bid_itr = bid_price_idx.end();
+            //eosio::print("id: ",bid_itr->id ,", amount: ", bid_itr->quantity.amount," price: ", bid_itr->price," value: ",bid_itr->quantity.amount,"\n");
             if(bid_itr != bid_price_idx.begin()){
               bid_itr--;
+              eosio::print("id: ",bid_itr->id ,", amount: ", bid_itr->quantity.amount," price: ", bid_itr->price," value: ",bid_itr->quantity.amount,"\n");
+              eosio::print("next itr\n");
             }else{
+              //bid_itr--;
+              eosio::print("id: ",bid_itr->id ,", amount: ", bid_itr->quantity.amount," price: ", bid_itr->price," value: ",bid_itr->quantity.amount,"\n");
+              eosio::print("break!\n");
+              //set bid_itr->price to 0
+              uint64_t order_id = ask_table.available_primary_key();
+              ask_table.emplace(_self, [&](auto& o){
+                  o.id = order_id;
+                  o.name = name;
+                  o.price = price;
+                  o.quantity = asset(total_asking_value, quantity.symbol);
+                  o.ordertime = current_time();
+              });
+              total_asking_value -= total_asking_value;
               break;
             }
           }
 
           if(total_asking_value > 0){  //remaining DAQ amount
-            if(bid_itr == bid_price_idx.end() || (price > bid_itr->price)){
+            /*if(price > bid_itr->price){
               //add bid order to the bid tables(no matching ask orders), asker is maker
               uint64_t order_id = ask_table.available_primary_key();
               ask_table.emplace(_self, [&](auto& o){
@@ -548,12 +564,14 @@ class eosdaq : public eosio::contract {
                   o.quantity = asset(total_asking_value, quantity.symbol);
                   o.ordertime = current_time();
               });
-            }else{
+            }else */if(price <= bid_itr->price ){
               //asker is taker
-              asset matched_base = asset(total_asking_value * price / DECIMALS, BASETOKEN);
+              eosio::print("total_asking_value: ", total_asking_value, " price: ", bid_itr->price,"\n");
+              asset matched_base = asset(total_asking_value * bid_itr->price / DECIMALS, BASETOKEN);
               asset matched_quote = asset(total_asking_value, QUOTETOKEN);
 
-              bid_price_idx.modify(bid_itr, 0, [&](auto& o){
+              auto itr = bid_table.find(bid_itr->id);
+              bid_table.modify(itr, 0, [&](auto& o){
                 o.quantity -= matched_base;
               });
 
