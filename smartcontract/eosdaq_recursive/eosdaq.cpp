@@ -56,6 +56,19 @@ class eosdaq : public eosio::contract {
          }
        }
 
+       int strcmp(const char *s1, const char *s2)
+       {
+         int ret =0;
+         while(!(ret = *(unsigned char *)s1 - *(unsigned char *) s2) && *s2) ++s1, ++s2;
+
+         if(ret < 0)
+            ret = -1;
+         else if(ret > 0)
+            ret = 1;
+
+            return ret;
+       }
+
       void transfer(uint64_t sender, uint64_t receiver) { //1
         auto transfer_data = eosio::unpack_action_data<st_transfer>();
         if(transfer_data.from == _self || transfer_data.to != _self) {
@@ -67,19 +80,20 @@ class eosdaq : public eosio::contract {
         eosio::print("from: ", transfer_data.from, " to: ", transfer_data.to, " quantity: ", transfer_data.quantity, " memo: ", transfer_data.memo, "\n");
 #endif
         string* token = stringSplit(transfer_data.memo,".");
-        eosio::print("integer: ", token[0], " decimal: ", token[1],"\n");
 
-        uint64_t price = stoi(token[0]) * DECIMALS + stoi(token[1]) * 1;
+        eosio_assert(token[1].length() == PRECISION, "wrong price format");
+        uint64_t price = stoi(token[0]) * DECIMALS + stoi(token[1]);
 #ifdef LOG
-        eosio::print("price: ", price);
+        eosio::print("integer: ", token[0], " decimal: ", token[1], " length: ",token[1].length(),"\n");
+        eosio::print("price: ", price,"\n");
 #endif
         eosio_assert(price > 0, "invalid price");
 
-        action(
+/*        action(
           permission_level{ _self, N(active) },
           ACCOUNTCONTRACT, N(checkipos),
           std::make_tuple(transfer_data.from, transfer_data.to, transfer_data.quantity, price)
-        ).send();
+        ).send();*/
       }
 
       void triggerorder(const bool check, const account_name from, const account_name to, const asset quantity, const uint64_t price){  //3
