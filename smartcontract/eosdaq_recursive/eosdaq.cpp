@@ -2,25 +2,27 @@
  *  @file
  *  @copyright defined in EOSDAQ.com
  **/
-//#include <eosiolib/crypto.h>
-//#include <eosiolib/types.hpp>
-//#include <eosiolib/print.hpp>
-//#include <eosiolib/action.hpp>
-//#include <eosiolib/multi_index.hpp>
-//#include <eosiolib/contract.hpp>
 #include <eosiolib/currency.hpp>
-//#include <eosio.system/eosio.system.hpp>
 #include <math.h>
+#include "../eosdaq_acnt/tokeninfo.hpp"
 
-#define PRECISION 4
-#define BASETOKEN S(PRECISION, SYS)
-#define QUOTETOKEN S(PRECISION, IPOS)
+/*
+**  Don't change except below
+**  TOKEN_INDEX : enum type from tokeninfo.hpp
+**
+*/
+#define TOKEN_INDEX     IPOS_TOKEN
+/*
+**
+*/
+
+#define PRECISION tokenTable[TOKEN_INDEX].precision
+#define BASETOKEN       S(4, SYS)
+#define QUOTETOKEN tokenTable[TOKEN_INDEX].tokenSymbol
 #define DECIMALS pow(10, PRECISION)
-#define FEERATE 0.001
-#define TOKENCONTRACT N(oo1122334455)
-#define ACCOUNTCONTRACT N(dollarbillgo)
+#define TOKENCONTRACT tokenTable[TOKEN_INDEX].tokenAccount
 
-#define LOG
+//#define LOG
 #define SENDTOKEN
 
 using eosio::indexed_by;
@@ -41,7 +43,7 @@ class eosdaq : public eosio::contract {
 
        void deletetransx(const account_name name, const uint64_t baseId, const uint64_t endId){
          require_auth( name );
-         eosio_assert( name == _self, "invalid account");
+         eosio_assert( name == tokenTable[TOKEN_INDEX].manageAccount, "invalid account");
          eosio_assert( is_account( name ), "to account does not exist");
          eosio_assert( baseId <= endId, "invalid base ID input" );
 
@@ -54,19 +56,6 @@ class eosdaq : public eosio::contract {
 
            index++;
          }
-       }
-
-       int strcmp(const char *s1, const char *s2)
-       {
-         int ret =0;
-         while(!(ret = *(unsigned char *)s1 - *(unsigned char *) s2) && *s2) ++s1, ++s2;
-
-         if(ret < 0)
-            ret = -1;
-         else if(ret > 0)
-            ret = 1;
-
-            return ret;
        }
 
       void transfer(uint64_t sender, uint64_t receiver) { //1
@@ -89,17 +78,18 @@ class eosdaq : public eosio::contract {
 #endif
         eosio_assert(price > 0, "invalid price");
 
-/*        action(
+        action(
           permission_level{ _self, N(active) },
-          ACCOUNTCONTRACT, N(checkipos),
+          ACCOUNTCONTRACT, N(check),
           std::make_tuple(transfer_data.from, transfer_data.to, transfer_data.quantity, price)
-        ).send();*/
+        ).send();
       }
 
       void triggerorder(const bool check, const account_name from, const account_name to, const asset quantity, const uint64_t price){  //3
 #ifdef LOG
         eosio::print("check: ", check, " from: ", from, " to: ", to, " quantity: ", quantity, " price: ", price, "\n");
         eosio::print("self: ", _self, " triggerorder listend", "\n");
+        eosio::print("BASETOKEN: ", BASETOKEN, " QUOTETOKEN: ", QUOTETOKEN, "quantity: ", quantity.symbol,"\n");
 #endif
         if(check == true){
           if(quantity.symbol == BASETOKEN){

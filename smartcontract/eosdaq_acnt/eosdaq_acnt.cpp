@@ -2,22 +2,14 @@
  *  @file
  *  @copyright defined in EOSDAQ.com
  **/
-//#include <eosiolib/crypto.h>
-//#include <eosiolib/types.hpp>
-//#include <eosiolib/print.hpp>
-//#include <eosiolib/action.hpp>
-//#include <eosiolib/multi_index.hpp>
-//#include <eosiolib/contract.hpp>
 #include <eosiolib/currency.hpp>
-//#include <eosio.system/eosio.system.hpp>
+#include "tokeninfo.hpp"
 
-#define EXCHANGECONTRACT  N(eosseieossei)
-#define LOG
+//#define LOG
 
 using eosio::permission_level;
 using eosio::action;
 using eosio::asset;
-//using eosio::string;
 
 class eosdaq_acnt : public eosio::contract {
    public:
@@ -28,7 +20,7 @@ class eosdaq_acnt : public eosio::contract {
 
        void enroll(const account_name owner, const account_name name){
          require_auth(owner);
-         eosio_assert( owner == _self, "not authorized");
+         eosio_assert( owner == N(eosdaqmanage), "not authorized");
          eosio_assert( is_account( name ), "not an account");
 
          auto itr = account_table.find(name);
@@ -40,7 +32,7 @@ class eosdaq_acnt : public eosio::contract {
 
        void drop(const account_name owner, const account_name name){
          require_auth(owner);
-         eosio_assert( owner == _self, "not authorized");
+         eosio_assert( owner == N(eosdaqmanage), "not authorized");
          eosio_assert( is_account( name ), "not an account");
 
          auto itr = account_table.find(name);
@@ -49,12 +41,12 @@ class eosdaq_acnt : public eosio::contract {
          account_table.erase(itr);
        }
 
-      void checkipos(const account_name from, const account_name to, const asset quantity, const uint64_t price){  //2
-         require_auth(EXCHANGECONTRACT);
+      void check(const account_name from, const account_name to, const asset quantity, const uint64_t price){  //2
+         require_auth(to);
          eosio_assert( is_account( from ), "invalid account");
-         eosio_assert( to == EXCHANGECONTRACT, "failed" );
+         eosio_assert( isContract(to), "not a enrolled contract" );
 
-         findaccount(from, to, quantity, price, EXCHANGECONTRACT );
+         findaccount(from, to, quantity, price);
        }
 
    private:
@@ -79,7 +71,7 @@ class eosdaq_acnt : public eosio::contract {
       //@seihyun create index tables
       account_index     account_table;
 
-      void findaccount(const account_name from, const account_name to, const asset quantity, const uint64_t price, const account_name req_name){
+      void findaccount(const account_name from, const account_name to, const asset quantity, const uint64_t price){
         auto itr = account_table.find(from);
         if(itr != account_table.end()){
       #ifdef LOG
@@ -90,7 +82,7 @@ class eosdaq_acnt : public eosio::contract {
       #endif
           action(
             permission_level{ _self, N(active) },
-            req_name, N(triggerorder),
+            to, N(triggerorder),
             std::make_tuple(true, from, to, quantity, price)
           ).send();
       #ifdef LOG
@@ -99,18 +91,28 @@ class eosdaq_acnt : public eosio::contract {
         }else{
       #ifdef LOG
          eosio::print("check -> trigger: false\n");
+         eosio::print("newrotaker: ", N(newrotaker),"\n");
+         eosio::print("eosdaqacnt: ", N(eosdaqacnt),"\n");
+         eosio::print("_self: ", _self,"\n");
       #endif
           action(
             permission_level{ _self, N(active) },
-            req_name, N(triggerorder),
+            to, N(triggerorder),
             std::make_tuple(false, from, to, quantity, price)
           ).send();
       #ifdef LOG
          eosio::print("check -> trigger: false action sent\n");
       #endif
         }
+      }
 
+      bool isContract(account_name to){
+        for(int i=0; i<TABLESIZE; i++){
+          if(tokenTable[i].exchangeAccount == to)
+           return true;
+        }
+        return false;
       }
 };
 
-EOSIO_ABI( eosdaq_acnt, (checkipos)(enroll)(drop) )
+EOSIO_ABI( eosdaq_acnt, (check)(enroll)(drop) )
