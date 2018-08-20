@@ -31,17 +31,30 @@ export KEY4_PRI=`grep Private .key4 | sed 's/Private key: //g'`
 cleos wallet create -n key4
 cleos wallet import --private-key ${KEY4_PRI} -n key4
 
+cleos create key 2>&1 > .key5
+export KEY5_PUB=`grep Public .key5 | sed 's/Public key: //g'`
+export KEY5_PRI=`grep Private .key5 | sed 's/Private key: //g'`
+cleos wallet create -n key5
+cleos wallet import --private-key ${KEY5_PRI} -n key5
+
 # sys account gen
 cleos create account eosio eosio.token ${KEY1_PUB} ${KEY1_PUB}
-cleos create account eosio oo1122334455 ${KEY2_PUB} ${KEY2_PUB}
 cleos create account eosio eosio.msig ${KEY1_PUB} ${KEY1_PUB}
 cleos create account eosio exchange ${KEY1_PUB} ${KEY1_PUB}
 
 # app account gen
-cleos create account eosio eosseieossei ${KEY2_PUB} ${KEY2_PUB}
-cleos set account permission eosseieossei active  '{"threshold": 1,"keys": [{"key": "'${KEY2_PUB}'","weight":1}],"accounts":[{"permission":{"actor":"eosseieossei","permission":"eosio.code"},"weight":1}]}' owner -p eosseieossei
-cleos create account eosio dollarbillgo ${KEY2_PUB} ${KEY2_PUB}
-cleos set account permission dollarbillgo active  '{"threshold": 1,"keys": [{"key": "'${KEY2_PUB}'","weight":1}],"accounts":[{"permission":{"actor":"dollarbillgo","permission":"eosio.code"},"weight":1}]}' owner -p dollarbillgo
+cleos create account eosio eosdaq555555 ${KEY5_PUB} ${KEY5_PUB}
+cleos set account permission eosdaq555555 active  '{"threshold": 1,"keys": [{"key": "'${KEY5_PUB}'","weight":1}],"accounts":[{"permission":{"actor":"eosdaq555555","permission":"eosio.code"},"weight":1}]}' owner -p eosdaq555555
+
+cleos create account eosio everipediaiq ${KEY2_PUB} ${KEY2_PUB}
+cleos create account eosio eosdaqoooooo ${KEY2_PUB} ${KEY2_PUB}
+cleos set account permission eosdaqoooooo active  '{"threshold": 1,"keys": [{"key": "'${KEY2_PUB}'","weight":1}],"accounts":[{"permission":{"actor":"eosdaqoooooo","permission":"eosio.code"},"weight":1}]}' owner -p eosdaqoooooo
+
+cleos create account eosio oo1122334455 ${KEY2_PUB} ${KEY2_PUB}
+cleos create account eosio eosdaqoooo24 ${KEY2_PUB} ${KEY2_PUB}
+cleos set account permission eosdaqoooo24 active  '{"threshold": 1,"keys": [{"key": "'${KEY2_PUB}'","weight":1}],"accounts":[{"permission":{"actor":"eosdaqoooo24","permission":"eosio.code"},"weight":1}]}' owner -p eosdaqoooo24
+
+cleos create account eosio eosdaqmanage ${KEY3_PUB} ${KEY3_PUB}
 
 cleos create account eosio newrovp ${KEY3_PUB} ${KEY3_PUB}
 cleos create account eosio newrotaker ${KEY4_PUB} ${KEY4_PUB}
@@ -50,20 +63,30 @@ cleos get accounts ${KEY1_PUB}
 
 # contract upload
 cleos set contract eosio /mnt/dev/contracts/eosio.bios -p eosio@active
-cleos set contract eosio.token /mnt/dev/contracts/eosio.token -p eosio.token@active
-cleos set contract oo1122334455 /mnt/dev/contracts/eosio.token -p oo1122334455@active
 cleos set contract eosio.msig /mnt/dev/contracts/eosio.msig -p eosio.msig@active
 cleos set contract exchange /mnt/dev/contracts/exchange -p exchange@active
-cleos set contract eosseieossei /mnt/dev/contracts/eosdaq -p eosseieossei@active
-cleos set contract dollarbillgo /mnt/dev/contracts/eosdaq_acnt -p dollarbillgo@active
+
+cleos set contract eosio.token /mnt/dev/contracts/eosio.token -p eosio.token@active
+cleos set contract oo1122334455 /mnt/dev/contracts/eosio.token -p oo1122334455@active
+cleos set contract everipediaiq /mnt/dev/contracts/eosio.token -p everipediaiq@active
+
+cleos set contract eosdaq555555 /mnt/dev/contracts/eosdaq_acnt -p eosdaq555555@active
+
+cleos set contract eosdaqoooooo /mnt/dev/contracts/eosdaq_IQ -p eosdaqoooooo@active
+cleos set contract eosdaqoooo24 /mnt/dev/contracts/eosdaq_IPOS -p eosdaqoooo24@active
 
 # Token gen
+##SYS gen
 cleos push action eosio.token create '{ "issuer":"eosio", "maximum_supply":"1000000000.0000 SYS"}' -p eosio.token@active
 cleos push action eosio.token issue '[ "newrovp", "1000000.0000 SYS", "memo" ]' -p eosio@active
 
-
+##IPOS gen
 cleos push action oo1122334455 create '{ "issuer":"oo1122334455", "maximum_supply":"1000000000.0000 IPOS"}' -p oo1122334455@active
 cleos push action oo1122334455 issue '[ "newrotaker", "1000000.0000 IPOS", "memo" ]' -p oo1122334455@active
+
+##IQ gen
+cleos push action everipediaiq create '{ "issuer":"everipediaiq", "maximum_supply":"1000000000.0000 IQ"}' -p everipediaiq@active
+cleos push action everipediaiq issue '[ "newrotaker", "1000000.0000 IQ", "memo" ]' -p everipediaiq@active
 
 
 #cleos push action eosio.token issue '[ "newrovp", "1000000.0000 SYS", "memo" ]' -p eosio@active
@@ -79,25 +102,44 @@ cleos push action oo1122334455 issue '[ "newrotaker", "1000000.0000 IPOS", "memo
 #cleos push action eosdaq verify '[ "eosdaq" ]' -p eosdaq@active
 #cleos push action eosdaq deletetransx '[ "eosdaq", 0, 0 ]' -p eosdaq@active
 
-cleos push action dollarbillgo enroll '[ "dollarbillgo", "newrotaker" ]' -p dollarbillgo@active
+cleos push action eosdaq555555 enroll '[ "eosdaqmanage", "newrotaker" ]' -p eosdaqmanage@active
 #cleos get table eosdaqacnt eosdaqacnt staccount -p eosdaqacnt@active
-cleos push action dollarbillgo enroll '[ "dollarbillgo", "newrovp" ]' -p dollarbillgo@active
-cleos get table dollarbillgo dollarbillgo staccount
+cleos push action eosdaq555555 enroll '[ "eosdaqmanage", "newrovp" ]' -p eosdaqmanage@active
+#cleos get table eosdaq555555 eosdaq555555 staccount
 
-#cleos push action oo1122334455 transfer '["newrotaker", "eosseieossei", "1000.0000 IPOS", "0.0006"]' -p newrotaker
-#cleos push action oo1122334455 transfer '["newrotaker", "eosseieossei", "1000.0000 IPOS", "0.0007"]' -p newrotaker
-#cleos push action oo1122334455 transfer '["newrotaker", "eosseieossei", "1000.0000 IPOS", "0.0008"]' -p newrotaker
-#cleos push action oo1122334455 transfer '["newrotaker", "eosseieossei", "1000.0000 IPOS", "0.0009"]' -p newrotaker
-#cleos push action oo1122334455 transfer '["newrotaker", "eosseieossei", "1000.0000 IPOS", "0.0010"]' -p newrotaker
+#SYS <-> IQ exchange
+cleos push action everipediaiq transfer '["newrotaker", "eosdaqoooooo", "1000.0000 IQ", "0.0006"]' -p newrotaker
+cleos push action everipediaiq transfer '["newrotaker", "eosdaqoooooo", "1000.0000 IQ", "0.0007"]' -p newrotaker
+cleos push action everipediaiq transfer '["newrotaker", "eosdaqoooooo", "1000.0000 IQ", "0.0008"]' -p newrotaker
+cleos push action everipediaiq transfer '["newrotaker", "eosdaqoooooo", "1000.0000 IQ", "0.0009"]' -p newrotaker
+cleos push action everipediaiq transfer '["newrotaker", "eosdaqoooooo", "1000.0000 IQ", "0.0010"]' -p newrotaker
+
+cleos transfer newrovp eosdaqoooooo "1.0000 SYS" "0.0001" -p newrovp
+cleos transfer newrovp eosdaqoooooo "1.0000 SYS" "0.0002" -p newrovp
+cleos transfer newrovp eosdaqoooooo "1.0000 SYS" "0.0003" -p newrovp
+cleos transfer newrovp eosdaqoooooo "1.0000 SYS" "0.0004" -p newrovp
+cleos transfer newrovp eosdaqoooooo "1.0000 SYS" "0.0005" -p newrovp
+
+#cleos push action everipediaiq transfer '["newrotaker", "eosdaqoooooo", "6000.0000 IQ", "0.0001"]' -p newrotaker
+#cleos transfer newrovp eosdaqoooooo "1.0000 SYS" "0.0010" -p newrovp
 
 
-#cleos transfer newrovp eosseieossei "1.0000 SYS" "0.0001" -p newrovp
-#cleos transfer newrovp eosseieossei "1.0000 SYS" "0.0002" -p newrovp
-cleos transfer newrovp eosseieossei "1.0000 SYS" "0.0003" -p newrovp
-cleos transfer newrovp eosseieossei "1.0000 SYS" "0.0004" -p newrovp
-cleos transfer newrovp eosseieossei "1.0000 SYS" "0.0005" -p newrovp
-cleos push action oo1122334455 transfer '["newrotaker", "eosseieossei", "6000.0000 IPOS", "0.0000"]' -p newrotaker
-#cleos transfer newrovp eosseieossei "1.0000 SYS" "0.0008" -p newrovp
+
+#SYS <-> IPOS exchange
+cleos push action oo1122334455 transfer '["newrotaker", "eosdaqoooo24", "1000.0000 IPOS", "0.0006"]' -p newrotaker
+cleos push action oo1122334455 transfer '["newrotaker", "eosdaqoooo24", "1000.0000 IPOS", "0.0007"]' -p newrotaker
+cleos push action oo1122334455 transfer '["newrotaker", "eosdaqoooo24", "1000.0000 IPOS", "0.0008"]' -p newrotaker
+cleos push action oo1122334455 transfer '["newrotaker", "eosdaqoooo24", "1000.0000 IPOS", "0.0009"]' -p newrotaker
+cleos push action oo1122334455 transfer '["newrotaker", "eosdaqoooo24", "1000.0000 IPOS", "0.0010"]' -p newrotaker
+
+cleos transfer newrovp eosdaqoooo24 "1.0000 SYS" "0.0001" -p newrovp
+cleos transfer newrovp eosdaqoooo24 "1.0000 SYS" "0.0002" -p newrovp
+cleos transfer newrovp eosdaqoooo24 "1.0000 SYS" "0.0003" -p newrovp
+cleos transfer newrovp eosdaqoooo24 "1.0000 SYS" "0.0004" -p newrovp
+cleos transfer newrovp eosdaqoooo24 "1.0000 SYS" "0.0005" -p newrovp
+
+#cleos push action oo1122334455 transfer '["newrotaker", "eosdaqoooo24", "6000.0000 IPOS", "0.0001"]' -p newrotaker
+#cleos transfer newrovp eosdaqoooo24 "1.0000 SYS" "0.0010" -p newrovp
 
 if [ -f local_init_extra.sh ]; then
     local_init_extra.sh
