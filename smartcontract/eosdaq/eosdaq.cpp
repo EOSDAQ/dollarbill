@@ -2,25 +2,27 @@
  *  @file
  *  @copyright defined in EOSDAQ.com
  **/
-//#include <eosiolib/crypto.h>
-//#include <eosiolib/types.hpp>
-//#include <eosiolib/print.hpp>
-//#include <eosiolib/action.hpp>
-//#include <eosiolib/multi_index.hpp>
-//#include <eosiolib/contract.hpp>
 #include <eosiolib/currency.hpp>
-//#include <eosio.system/eosio.system.hpp>
 #include <math.h>
+#include "../eosdaq_acnt/tokeninfo.hpp"
 
-#define PRECISION 4
-#define BASETOKEN S(PRECISION, SYS)
-#define QUOTETOKEN S(PRECISION, IPOS)
+/*
+**  Don't change except below
+**  TOKEN_INDEX : enum type from tokeninfo.hpp
+**
+*/
+#define TOKEN_INDEX     IPOS_TOKEN
+/*
+**
+*/
+
+#define PRECISION tokenTable[TOKEN_INDEX].precision
+#define BASETOKEN       S(4, SYS)
+#define QUOTETOKEN tokenTable[TOKEN_INDEX].tokenSymbol
 #define DECIMALS pow(10, PRECISION)
-#define FEERATE 0.001
-#define TOKENCONTRACT N(oo1122334455)
-#define ACCOUNTCONTRACT N(dollarbillgo)
+#define TOKENCONTRACT tokenTable[TOKEN_INDEX].tokenAccount
 
-#define LOG
+//#define LOG
 #define SENDTOKEN
 
 using eosio::indexed_by;
@@ -41,7 +43,7 @@ class eosdaq : public eosio::contract {
 
        void deletetransx(const account_name name, const uint64_t baseId, const uint64_t endId){
          require_auth( name );
-         eosio_assert( name == _self, "invalid account");
+         eosio_assert( name == tokenTable[TOKEN_INDEX].manageAccount, "invalid account");
          eosio_assert( is_account( name ), "to account does not exist");
          eosio_assert( baseId <= endId, "invalid base ID input" );
 
@@ -67,21 +69,27 @@ class eosdaq : public eosio::contract {
         eosio::print("from: ", transfer_data.from, " to: ", transfer_data.to, " quantity: ", transfer_data.quantity, " memo: ", transfer_data.memo, "\n");
 #endif
         string* token = stringSplit(transfer_data.memo,".");
+
+        eosio_assert(token[1].length() == PRECISION, "wrong price format");
         uint64_t price = stoi(token[0]) * DECIMALS + stoi(token[1]);
 #ifdef LOG
-        eosio::print("price: ", price, "\n");
+        eosio::print("integer: ", token[0], " decimal: ", token[1], " length: ",token[1].length(),"\n");
+        eosio::print("price: ", price,"\n");
 #endif
+        eosio_assert(price > 0, "invalid price");
+
         action(
           permission_level{ _self, N(active) },
-          ACCOUNTCONTRACT, N(checkipos),
+          ACCOUNTCONTRACT, N(check),
           std::make_tuple(transfer_data.from, transfer_data.to, transfer_data.quantity, price)
         ).send();
       }
 
-      void triggerorder(bool check, account_name from, account_name to, asset quantity, uint64_t price){  //3
+      void triggerorder(const bool check, const account_name from, const account_name to, const asset quantity, const uint64_t price){  //3
 #ifdef LOG
         eosio::print("check: ", check, " from: ", from, " to: ", to, " quantity: ", quantity, " price: ", price, "\n");
         eosio::print("self: ", _self, " triggerorder listend", "\n");
+        eosio::print("BASETOKEN: ", BASETOKEN, " QUOTETOKEN: ", QUOTETOKEN, "quantity: ", quantity.symbol,"\n");
 #endif
         if(check == true){
           if(quantity.symbol == BASETOKEN){
@@ -247,18 +255,16 @@ class eosdaq : public eosio::contract {
       }
 
       //insert record to match table and send tokens to maker's account
-      void bidtaker_xfer( const account_name from, const account_name to, const asset quote_quantity, const asset quantity, const uint64_t order_id ) {
+      void bidtaker_transfer( const account_name from, const account_name to, const asset quote_quantity, const asset quantity, const uint64_t price ) {
         eosio_assert( is_account( to ), "to account does not exist");
         eosio_assert( quantity.is_valid(), "invalid quantity" );
         eosio_assert( quantity.amount > 0, "must deposit positive quantity" );
 
-        auto itr = ask_table.find(order_id);
-        eosio_assert(itr != ask_table.end(), "unknown matching order");
-
         uint64_t o_id = tx_table.available_primary_key();
+        if(o_id == 0) o_id++;
         tx_table.emplace(_self, [&](auto& o){
             o.id = o_id;
-            o.price = itr->price;
+            o.price = price;
             o.maker = from;
             o.maker_asset = asset(quantity.amount, quantity.symbol);
             o.taker = to;
@@ -289,18 +295,16 @@ class eosdaq : public eosio::contract {
       }
 
       //insert record to match table and send tokens to maker's account
-      void asktaker_xfer( const account_name from, const account_name to, const asset base_quantity, const asset quantity, const uint64_t order_id ) {
+      void asktaker_transfer( const account_name from, const account_name to, const asset base_quantity, const asset quantity, const uint64_t price ) {
         eosio_assert( is_account( to ), "to account does not exist");
         eosio_assert( quantity.is_valid(), "invalid quantity" );
         eosio_assert( quantity.amount > 0, "must deposit positive quantity" );
 
-        auto itr = bid_table.find(order_id);
-        eosio_assert(itr != bid_table.end(), "unknown matching order");
-
         uint64_t o_id = tx_table.available_primary_key();
+        if(o_id == 0) o_id++;
         tx_table.emplace(_self, [&](auto& o){
             o.id = o_id;
-            o.price = itr->price;
+            o.price = price;
             o.maker = from;
             o.maker_asset = asset(quantity.amount, quantity.symbol);
             o.taker = to;
@@ -336,112 +340,79 @@ class eosdaq : public eosio::contract {
         eosio_assert( quantity.is_valid(), "invalid quantity" );
         eosio_assert( quantity.amount > 0, "must transfer positive quantity" );
 
+#ifdef LOG
+        eosio::print("name: ", name, " price: ", price, " quantity: ", quantity, "\n");
+#endif
+
         auto bid_price_idx = bid_table.get_index<N(price)>();
-        auto bid_itr = bid_price_idx.begin();
+        auto bid_itr = bid_price_idx.crbegin();
 
         auto ask_price_idx = ask_table.get_index<N(price)>();
-        auto ask_itr = ask_price_idx.begin();
+        auto ask_itr = ask_price_idx.cbegin();
 
         uint64_t highest_bid_price, lowest_ask_price;
-        if(bid_itr == bid_price_idx.end()){
+        if(bid_itr == bid_price_idx.crend()){
             highest_bid_price = 0;
         }else{
             highest_bid_price = bid_itr->price;
         }
 
-        if(ask_itr == ask_price_idx.end()){
+        if(ask_itr == ask_price_idx.cend()){
             lowest_ask_price = UINT64_MAX;
         }else{
             lowest_ask_price = ask_itr->price;
         }
-
 #ifdef LOG
-        eosio::print("id =",ask_itr->id,"\t","price =",ask_itr->price,"\n");
-        eosio::print(price, " >= ", lowest_ask_price,"\n");
+        eosio::print("high bid: ", highest_bid_price, " low ask: ", lowest_ask_price,"\n");
 #endif
-        //1. bidding price >= ask lowest price : match -> 1) erase ask(bidder=taker) 2) create bid order after erase ask(bidder=maker after taking)
         if( price >= lowest_ask_price ){
-            uint64_t total_bidding_value = quantity.amount; //SYS
 #ifdef LOG
-            eosio::print("entering price >= lowest_ask_price", "\n");
-            eosio::print("total_bidding_value(SYS): ", total_bidding_value, "\n");
-            eosio::print("amount: ", ask_itr->quantity.amount," price: ", ask_itr->price," value: ", (ask_itr->quantity.amount * ask_itr->price),"\n");
+          eosio::print("case 1: match bid order","\n");
 #endif
-            //bidder is taker
-           while( (((total_bidding_value * DECIMALS) / ask_itr-> price) >= ask_itr->quantity.amount) && (price >= ask_itr->price)){
-#ifdef LOG
-              eosio::print("id: ",ask_itr->id ,", amount: ", ask_itr->quantity.amount," price: ", ask_itr->price," value: ",ask_itr->quantity.amount,"\n");
-#endif
-              //uint64_t bidding_value = ask_itr->quantity.amount; //DAQ
-
-              asset matched_base = asset((ask_itr->quantity.amount* ask_itr->price / DECIMALS), BASETOKEN);
-              asset matched_quote = asset(ask_itr->quantity.amount, QUOTETOKEN);
+          //bidder is taker
+         if( ((quantity.amount * DECIMALS) / ask_itr-> price) >= ask_itr->quantity.amount ){
+            asset matched_base = asset((ask_itr->quantity.amount* ask_itr->price / DECIMALS), BASETOKEN);
+            asset matched_quote = asset(ask_itr->quantity.amount, QUOTETOKEN);
 
 #ifdef LOG
-              eosio::print("Base ", "symbol: ", matched_base.symbol, ", amount: ", matched_base.amount, "\n");
-              eosio::print("Quote ", "symbol: ", matched_quote.symbol, ", amount: ", matched_quote.amount, "\n");
+            eosio::print("Base ", "symbol: ", matched_base.symbol, ", amount: ", matched_base.amount, "\n");
+            eosio::print("Quote ", "symbol: ", matched_quote.symbol, ", amount: ", matched_quote.amount, "\n");
 #endif
-              bidtaker_xfer(name, ask_itr->name, matched_quote, matched_base, ask_itr->id);
+            bidtaker_transfer(name, ask_itr->name, matched_quote, matched_base, ask_itr->price);
 
-              total_bidding_value = ( ((total_bidding_value * DECIMALS) / ask_itr->price) - ask_itr->quantity.amount) * ask_itr->price / DECIMALS;
-#ifdef LOG
-eosio::print("total bidding value: ", total_bidding_value, " price: ", ask_itr->price, " quantity: ", ask_itr->quantity, "\n");
-#endif
+            asset remain = asset(( ((quantity.amount * DECIMALS) / ask_itr->price) - ask_itr->quantity.amount) * ask_itr->price / DECIMALS, BASETOKEN);
 
-              if(matched_quote < ask_itr->quantity){
-                ask_price_idx.modify(ask_itr, 0, [&](auto& o){
-                  o.quantity -= matched_quote;
-                });
-              }else if(matched_quote == ask_itr->quantity){
-                auto itr = ask_table.find(ask_itr->id);
-                ask_table.erase(itr);
-              }
-
-              //total_bidding_value -= bidding_value;
-
-
-              ask_itr = ask_price_idx.begin();
-              if(ask_itr == ask_price_idx.end()){
-                break;
-              }
+            if(matched_quote == ask_itr->quantity){
+              auto itr = ask_table.find(ask_itr->id);
+              ask_table.erase(itr);
             }
 
-            //remaining bid amount
-            if(total_bidding_value > 0){
-              if(price < ask_itr->price){
-                //add bid order to the bid tables(no matching ask orders), maker
-                uint64_t order_id = bid_table.available_primary_key();
-                bid_table.emplace(_self, [&](auto& o){
-                    o.id = order_id;
-                    o.name = name;
-                    o.price = price;
-                    o.quantity = asset(total_bidding_value, quantity.symbol);
-                    o.ordertime = current_time();
-                });
-              }else if(price >= ask_itr->price){
-                //bidder is still taker
-#ifdef LOG
-                eosio::print("remaining bid amount","\n");
-#endif
-                asset matched_base = asset(total_bidding_value, BASETOKEN);
-                asset matched_quote = asset(total_bidding_value * DECIMALS / ask_itr->price, QUOTETOKEN);
-
-#ifdef LOG
-                eosio::print("base: ", matched_base, ", quote: ",matched_quote, "\n");
-#endif
-                ask_price_idx.modify(ask_itr, 0, [&](auto& o){
-                  o.quantity -= matched_quote;
-                });
-
-                bidtaker_xfer(name, ask_itr->name, matched_quote, matched_base, ask_itr->id);
-              }
+            if(remain.amount != 0){
+              bidorder(name, price, remain);
             }
-        }
-        //2. 1) bid highest price < bidding price < ask lowest price 2) bidding price < bid lowest price : emplace, bidder=maker
-        //3. bidding price == existing bid price : insert, bidder=maker
-        else if( (( highest_bid_price < price ) && ( price < lowest_ask_price )) || (price <= highest_bid_price) ){
+          }else if( (quantity.amount * DECIMALS / ask_itr-> price) < ask_itr->quantity.amount ){
+            asset matched_base = asset(quantity.amount, BASETOKEN);
+            asset matched_quote = asset((quantity.amount * DECIMALS / ask_itr-> price), QUOTETOKEN);
+
+#ifdef LOG
+            eosio::print("Base ", "symbol: ", matched_base.symbol, ", amount: ", matched_base.amount, "\n");
+            eosio::print("Quote ", "symbol: ", matched_quote.symbol, ", amount: ", matched_quote.amount, "\n");
+#endif
+            bidtaker_transfer(name, ask_itr->name, matched_quote, matched_base, ask_itr->price);
+
+            if(matched_quote < ask_itr->quantity){
+              ask_price_idx.modify(ask_itr, 0, [&](auto& o){
+                o.quantity -= matched_quote;
+              });
+            }
+          }
+        }else if( (( highest_bid_price < price ) && ( price < lowest_ask_price )) || (price <= highest_bid_price) ){
+#ifdef LOG
+          eosio::print("case 2,3: add bid order to bid table","\n");
+#endif
           uint64_t order_id;
           order_id = bid_table.available_primary_key();
+          if(order_id == 0) order_id++;
           bid_table.emplace(_self, [&](auto& o){
               o.id = order_id;
               o.name = name;
@@ -449,58 +420,47 @@ eosio::print("total bidding value: ", total_bidding_value, " price: ", ask_itr->
               o.quantity = quantity;
               o.ordertime = current_time();
           });
-#ifdef LOG
-          eosio::print("add bid order to bid table","\n");
-#endif
         }
-#ifdef LOG
-        eosio::print("bidorder completed\n");
-#endif
+        return;
       }
 
       void askorder(const account_name name, const uint64_t price, const asset quantity){
-        //eosio_assert( is_account( name ), "to account does not exist");
+        eosio_assert( is_account( name ), "to account does not exist");
         eosio_assert( price > 0, "invalid price" );
         eosio_assert( quantity.is_valid(), "invalid quantity" );
         eosio_assert( quantity.amount > 0, "must transfer positive quantity" );
 
-        auto ask_price_idx = ask_table.get_index<N(price)>();
-        auto ask_itr = ask_price_idx.begin();
-
-        uint64_t lowest_ask_price;
-        if(ask_itr == ask_price_idx.end()){
-          lowest_ask_price = UINT64_MAX;
-        }else{
-          lowest_ask_price = ask_itr->price;
-        }
 #ifdef LOG
-        eosio::print("lowest_ask_price =",lowest_ask_price,"\n");
+        eosio::print("name: ", name, " price: ", price, " quantity: ", quantity, "\n");
 #endif
-        auto bid_price_idx = bid_table.get_index<N(price)>();
-        auto bid_itr = bid_price_idx.end();
-        if(bid_itr != bid_price_idx.begin()){
-          bid_itr--;
-        }
 
-        uint64_t highest_bid_price;
-        if(bid_itr == bid_price_idx.end()){
+        auto bid_price_idx = bid_table.get_index<N(price)>();
+        auto bid_itr = bid_price_idx.crbegin();
+
+        auto ask_price_idx = ask_table.get_index<N(price)>();
+        auto ask_itr = ask_price_idx.cbegin();
+
+        uint64_t highest_bid_price, lowest_ask_price;
+        if(bid_itr == bid_price_idx.crend()){
             highest_bid_price = 0;
         }else{
-          highest_bid_price = bid_itr->price;
+            highest_bid_price = bid_itr->price;
+        }
+
+        if(ask_itr == ask_price_idx.cend()){
+            lowest_ask_price = UINT64_MAX;
+        }else{
+            lowest_ask_price = ask_itr->price;
         }
 #ifdef LOG
-        eosio::print("highest_bid_price =",highest_bid_price,"\n");
-        eosio::print(price, " vs ", highest_bid_price,"\n");
+        eosio::print("high bid: ", highest_bid_price, " low ask: ", lowest_ask_price,"\n");
 #endif
-        //1. asking price <= bid highest price : match -> 1) erase ask(asker is taker) 2) create bid order after erase ask(asker is maker after taking)
         if( price <= highest_bid_price ){
-          uint64_t total_asking_value = quantity.amount;  //total DAQ value
 #ifdef LOG
-          eosio::print("total_asking_value(TOKEN): ", total_asking_value, "\n");
-          eosio::print("amount: ", bid_itr->quantity.amount," price: ", bid_itr->price," value: ",bid_itr->quantity.amount,"\n");
+          eosio::print("case 1: match bid order","\n");
 #endif
-          //asker is taker
-          while( (total_asking_value >= ((bid_itr->quantity.amount * DECIMALS) / bid_itr->price)) && (price <= bid_itr->price)){
+          //while( (total_asking_value >= ((bid_itr->quantity.amount * DECIMALS) / bid_itr->price)) && (price <= bid_itr->price)){
+          if( quantity.amount >= (bid_itr->quantity.amount * DECIMALS / bid_itr->price)){
 #ifdef LOG
             eosio::print("id: ",bid_itr->id ,", amount: ", bid_itr->quantity.amount," price: ", bid_itr->price," value: ",bid_itr->quantity.amount,"\n");
 #endif
@@ -511,79 +471,41 @@ eosio::print("total bidding value: ", total_bidding_value, " price: ", ask_itr->
 #ifdef LOG
             eosio::print("Base ", "symbol: ", matched_base.symbol, ", amount: ", matched_base.amount, "\n");
             eosio::print("Quote ", "symbol: ", matched_quote.symbol, ", amount: ", matched_quote.amount, "\n");
-            eosio::print("asktakertf","\n");
 #endif
-            asktaker_xfer(name, bid_itr->name, matched_base, matched_quote, bid_itr->id);
+            asktaker_transfer(name, bid_itr->name, matched_base, matched_quote, bid_itr->price);
 
-            total_asking_value = total_asking_value - ((bid_itr->quantity.amount * DECIMALS) / bid_itr->price );
+            asset remain = asset(quantity.amount - (bid_itr->quantity.amount * DECIMALS / bid_itr->price ), QUOTETOKEN);
+            if(matched_base == bid_itr->quantity){
+              auto itr = bid_table.find(bid_itr->id);
+              bid_table.erase(itr);
+            }
+
+            if(remain.amount != 0){
+              askorder(name, price, remain);
+            }
+          }else if(quantity.amount < (bid_itr->quantity.amount * DECIMALS / bid_itr->price)){
+            asset matched_base = asset(quantity.amount * bid_itr->price / DECIMALS, BASETOKEN);
+            asset matched_quote = asset(quantity.amount, QUOTETOKEN);
+
 #ifdef LOG
-            eosio::print("total_asking_value: ", total_asking_value, "\n");
+            eosio::print("Base ", "symbol: ", matched_base.symbol, ", amount: ", matched_base.amount, "\n");
+            eosio::print("Quote ", "symbol: ", matched_quote.symbol, ", amount: ", matched_quote.amount, "\n");
 #endif
+            asktaker_transfer(name, bid_itr->name, matched_base, matched_quote, bid_itr->price);
+
             if(matched_base < bid_itr->quantity){
               auto itr = bid_table.find(bid_itr->id);
               bid_table.modify(itr, 0, [&](auto& o){
                 o.quantity -= matched_base;
               });
-            }else if(matched_base == bid_itr->quantity){
-              auto itr = bid_table.find(bid_itr->id);
-              bid_table.erase(itr);
-            }
-
-            bid_itr = bid_price_idx.end();
-            //eosio::print("id: ",bid_itr->id ,", amount: ", bid_itr->quantity.amount," price: ", bid_itr->price," value: ",bid_itr->quantity.amount,"\n");
-            if(bid_itr != bid_price_idx.begin()){
-              bid_itr--;
-              eosio::print("id: ",bid_itr->id ,", amount: ", bid_itr->quantity.amount," price: ", bid_itr->price," value: ",bid_itr->quantity.amount,"\n");
-              eosio::print("next itr\n");
-            }else{
-              //bid_itr--;
-              eosio::print("id: ",bid_itr->id ,", amount: ", bid_itr->quantity.amount," price: ", bid_itr->price," value: ",bid_itr->quantity.amount,"\n");
-              eosio::print("break!\n");
-              //set bid_itr->price to 0
-              uint64_t order_id = ask_table.available_primary_key();
-              ask_table.emplace(_self, [&](auto& o){
-                  o.id = order_id;
-                  o.name = name;
-                  o.price = price;
-                  o.quantity = asset(total_asking_value, quantity.symbol);
-                  o.ordertime = current_time();
-              });
-              total_asking_value -= total_asking_value;
-              break;
             }
           }
-
-          if(total_asking_value > 0){  //remaining DAQ amount
-            /*if(price > bid_itr->price){
-              //add bid order to the bid tables(no matching ask orders), asker is maker
-              uint64_t order_id = ask_table.available_primary_key();
-              ask_table.emplace(_self, [&](auto& o){
-                  o.id = order_id;
-                  o.name = name;
-                  o.price = price;
-                  o.quantity = asset(total_asking_value, quantity.symbol);
-                  o.ordertime = current_time();
-              });
-            }else */if(price <= bid_itr->price ){
-              //asker is taker
-              eosio::print("total_asking_value: ", total_asking_value, " price: ", bid_itr->price,"\n");
-              asset matched_base = asset(total_asking_value * bid_itr->price / DECIMALS, BASETOKEN);
-              asset matched_quote = asset(total_asking_value, QUOTETOKEN);
-
-              auto itr = bid_table.find(bid_itr->id);
-              bid_table.modify(itr, 0, [&](auto& o){
-                o.quantity -= matched_base;
-              });
-
-              asktaker_xfer(name, bid_itr->name, matched_base, matched_quote, bid_itr->id);
-            }
-          }
-        }
-
-        //2. 1) bid highest price < asking price < ask lowest price 2) asking price > ask high price : emplace
-        //3. asking price == existing ask price : insert
-        else if( (( price > highest_bid_price ) && ( price < lowest_ask_price )) || (price >= lowest_ask_price) ){
+        }else if( (( price > highest_bid_price ) && ( price < lowest_ask_price )) || (price >= lowest_ask_price) ){
+#ifdef LOG
+          eosio::print("case 2,3: add bid order to bid table","\n");
+#endif
           uint64_t order_id = ask_table.available_primary_key();
+          if(order_id == 0) order_id++;
           ask_table.emplace(_self, [&](auto& o){
               o.id = order_id;
               o.name = name;
@@ -592,6 +514,7 @@ eosio::print("total bidding value: ", total_bidding_value, " price: ", ask_itr->
               o.ordertime = current_time();
           });
         }
+        return;
       }
 };
 
