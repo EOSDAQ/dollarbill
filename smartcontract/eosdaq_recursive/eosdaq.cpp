@@ -69,8 +69,11 @@ class eosdaq : public eosio::contract {
         eosio::print("from: ", transfer_data.from, " to: ", transfer_data.to, " quantity: ", transfer_data.quantity, " memo: ", transfer_data.memo, "\n");
 #endif
         string* token = stringSplit(transfer_data.memo,".");
-
+        eosio_assert(transfer_data.memo.length() == token[0].length() + token[1].length() + 1, "wrong price format");
         eosio_assert(token[1].length() == PRECISION, "wrong price format");
+        eosio_assert(isPrice(token[0], token[0].length()), "wrong price format");
+        eosio_assert(isPrice(token[1], token[1].length()), "wrong price format");
+
         uint64_t price = stoi(token[0]) * DECIMALS + stoi(token[1]);
 #ifdef LOG
         eosio::print("integer: ", token[0], " decimal: ", token[1], " length: ",token[1].length(),"\n");
@@ -252,6 +255,17 @@ class eosdaq : public eosio::contract {
           strResult[nIndex++] = strTarget.substr(0, nCutPos);
         }
         return strResult;
+      }
+
+      bool isPrice(string first, uint8_t precision)
+      {
+        uint8_t counter = 0;
+        for(int i=0; i < precision; i++){
+          uint64_t value = (uint64_t)first[i] - 48;
+
+          if(value > 9) return false;
+        }
+        return true;
       }
 
       //insert record to match table and send tokens to maker's account
