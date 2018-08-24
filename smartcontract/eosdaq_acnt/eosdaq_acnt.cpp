@@ -44,7 +44,7 @@ class eosdaq_acnt : public eosio::contract {
       void check(const account_name from, const account_name to, const asset quantity, const uint64_t price){  //2
          require_auth(to);
          eosio_assert( is_account( from ), "invalid account");
-         eosio_assert( isContract(to), "not a enrolled contract" );
+         eosio_assert( isContract(to), "not an enrolled contract" );
 
          findaccount(from, to, quantity, price);
        }
