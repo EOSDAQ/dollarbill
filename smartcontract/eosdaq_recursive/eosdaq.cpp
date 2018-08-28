@@ -5,7 +5,6 @@
 #include <eosiolib/currency.hpp>
 #include <math.h>
 #include "../eosdaq_acnt/tokeninfo.hpp"
-
 /*
 **  Don't change except below
 **  TOKEN_INDEX : enum type from tokeninfo.hpp
@@ -216,19 +215,39 @@ class eosdaq : public eosio::contract {
       }
 
       std::string to_string(uint64_t value, uint8_t precision, std::string tag) const {
-         static const char* charmap = "0123456789abcdefghijklmnopqrstuvwxyz";
+        static const char* charmap = "0123456789";
 
-         std::string str(precision,'.');
+        uint64_t integer = value / DECIMALS;
+        uint64_t decimal = value - integer * DECIMALS;
 
-         uint64_t tmp = value;
-         for( uint32_t i = 0; i < precision; ++i ) {
-            char c = charmap[tmp & (i == 0 ? 0x0f : 0x1f)];
-            str[precision-i-1] = c;
-            tmp >>= (i == 0 ? 4 : 5);
+        uint32_t len = 0;
+        uint64_t temp = integer;
+        do{
+         temp /= 10;
+         len++;
+        }while(temp > 0);
+
+        std::string str(len + precision + 1,'.');
+
+        if(integer > 0){
+         for( uint32_t i = 0; i < len; ++i ) {
+           uint64_t tmp = integer / pow(10, len-1 - i);
+           integer = integer - tmp * pow(10, len-1 - i);
+           str[i] = charmap[tmp & 0x1f];
          }
+        }else{
+          str[0] = '0';
+        }
+        str[len] = '.';
 
-         return tag + "@0." + str;
+        for(uint32_t i=0; i< precision; ++i){
+         uint64_t tmp = decimal / pow(10, precision-1 - i);
+         decimal = decimal - tmp * pow(10, precision-1 - i);
+         str[len + 1 + i] = charmap[tmp & 0x1f];
+        }
+        return tag + "@" + str;
       }
+
       //insert record to match table and send tokens to maker's account
       void bidtaker_transfer( const account_name from, const account_name to, const asset quote_quantity, const asset quantity, const uint64_t price ) {
         eosio_assert( quantity.is_valid(), "invalid quantity" );
