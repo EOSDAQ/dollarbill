@@ -3,7 +3,7 @@
  *  @copyright defined in EOSDAQ.com
  **/
 #include <eosiolib/currency.hpp>
-#include <math.h>
+#include <cmath>
 #include "../eosdaq_acnt/tokeninfo.hpp"
 /*
 **  Don't change except below
@@ -43,7 +43,7 @@ class eosdaq : public eosio::contract {
         if(transfer_data.from == _self || transfer_data.to != _self) {
             return;
         }
-
+        if( is_system_account(transfer_data.from) == true)  return;
 #ifdef LOG
         eosio::print(" transfer listened", "\n");
         eosio::print("from: ", transfer_data.from, " to: ", transfer_data.to, " quantity: ", transfer_data.quantity, " memo: ", transfer_data.memo, "\n");
@@ -185,6 +185,22 @@ class eosdaq : public eosio::contract {
       //create index tables
       bid_index         bid_table;
       ask_index         ask_table;
+
+      bool is_system_account(account_name name){
+        if( (name == N(eosio.ram))   ||
+            (name == N(eosio.ramfee))||
+            (name == N(eosio.msig))  ||
+            (name == N(eosio.stake)) ||
+            (name == N(eosio.token)) ||
+            (name == N(eosio.saving))||
+            (name == N(eosio.names)) ||
+            (name == N(eosio.bpay))  ||
+            (name == N(eosio.vpay))
+          ){
+            return true;
+        }
+        return false;
+      }
 
       string* strSplit(string strTarget, string strTok){
         int nCutPos;
