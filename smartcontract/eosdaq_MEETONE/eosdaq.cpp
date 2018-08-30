@@ -43,7 +43,8 @@ class eosdaq : public eosio::contract {
         if(transfer_data.from == _self || transfer_data.to != _self) {
             return;
         }
-        if( is_system_account(transfer_data.from) == true)  return;
+        if( is_system_account(transfer_data.from) == true ||
+            is_system_account(transfer_data.to) == true )  return;
 #ifdef LOG
         eosio::print(" transfer listened", "\n");
         eosio::print("from: ", transfer_data.from, " to: ", transfer_data.to, " quantity: ", transfer_data.quantity, " memo: ", transfer_data.memo, "\n");

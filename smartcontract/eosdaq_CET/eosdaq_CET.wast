@@ -3213,6 +3213,20 @@
       (get_local $14)
      )
     )
+    (br_if $label$1
+     (call $_ZN6eosdaq17is_system_accountEy
+      (get_local $0)
+      (i64.load
+       (i32.add
+        (i32.add
+         (get_local $17)
+         (i32.const 144)
+        )
+        (i32.const 8)
+       )
+      )
+     )
+    )
     (drop
      (call $_ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEC2ERKS5_
       (i32.add
@@ -3227,8 +3241,11 @@
     )
     (i32.store
      (i32.add
-      (get_local $17)
-      (i32.const 120)
+      (i32.add
+       (get_local $17)
+       (i32.const 112)
+      )
+      (i32.const 8)
      )
      (i32.const 0)
     )
