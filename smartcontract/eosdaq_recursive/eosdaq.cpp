@@ -115,7 +115,7 @@ class eosdaq : public eosio::contract {
             permission_level{ _self, N(active) },
             N(eosio.token), N(transfer),
             //std::make_tuple(_self, bid_itr->name, bid_itr->quantity, std::string("cancel@" + std::to_string(bid_itr->price)))
-            std::make_tuple(_self, bid_itr->name, bid_itr->quantity, to_string(bid_itr->price, PRECISION, "canceled"))
+            std::make_tuple(_self, bid_itr->name, bid_itr->quantity, to_string(bid_itr->price, PRECISION, "cancel"))
           ).send();
 #endif
           bid_table.erase(bid_itr);
@@ -131,7 +131,7 @@ class eosdaq : public eosio::contract {
           action(
             permission_level{ _self, N(active) },
             TOKENCONTRACT, N(transfer),
-            std::make_tuple(_self, ask_itr->name, ask_itr->quantity, to_string(ask_itr->price, PRECISION, "canceled"))
+            std::make_tuple(_self, ask_itr->name, ask_itr->quantity, to_string(ask_itr->price, PRECISION, "cancel"))
           ).send();
 #endif
           ask_table.erase(ask_itr);
@@ -276,7 +276,7 @@ class eosdaq : public eosio::contract {
         action(
           permission_level{ _self, N(active) },
           TOKENCONTRACT, N(transfer),
-          std::make_tuple(_self, from, quote_quantity, to_string(price, PRECISION, "matched"))
+          std::make_tuple(_self, from, quote_quantity, to_string(price, PRECISION, "match"))
         ).send();
 #endif
 #ifdef LOG
@@ -286,7 +286,7 @@ class eosdaq : public eosio::contract {
         action(
           permission_level{ _self, N(active) },
           N(eosio.token), N(transfer),
-          std::make_tuple(_self, to, quantity, to_string(price, PRECISION, "matched"))
+          std::make_tuple(_self, to, quantity, to_string(price, PRECISION, "match"))
         ).send();
 #endif
       }
@@ -302,7 +302,7 @@ class eosdaq : public eosio::contract {
         action(
           permission_level{ _self, N(active) },
           N(eosio.token), N(transfer),
-          std::make_tuple(_self, from, base_quantity, to_string(price, PRECISION, "matched"))
+          std::make_tuple(_self, from, base_quantity, to_string(price, PRECISION, "match"))
         ).send();
 #endif
 #ifdef LOG
@@ -312,7 +312,7 @@ class eosdaq : public eosio::contract {
         action(
           permission_level{ _self, N(active) },
           TOKENCONTRACT, N(transfer),
-          std::make_tuple(_self, to, quantity, to_string(price, PRECISION, "matched"))
+          std::make_tuple(_self, to, quantity, to_string(price, PRECISION, "match"))
         ).send();
 #endif
       }
