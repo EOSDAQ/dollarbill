@@ -1,6 +1,6 @@
 #!/bin/zsh
 
-. ./4.eos_keys.sh
+. ./3.eos_keys.sh
 
 KEYCOUNT=70
 for N in {1..$KEYCOUNT}

@@ -1,7 +1,7 @@
 #!/bin/zsh
 
 # Local eos
-alias cleos='docker exec local_keosd cleos -u http://local_nodeos:8888 --wallet-url http://localhost:8900'
+alias cleos='sudo -E docker exec local_keosd cleos -u http://local_nodeos:8888 --wallet-url http://localhost:8900'
 export EOSIOKEY=5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3
 export LOCAL_EOS=`cat ~/.local_eos`
 
@@ -20,10 +20,10 @@ prikey() {
 if [[ "$@" == "new" ]]; then
     echo "generation new wallet&key"
 
-    sudo docker stop local_keosd
-    sudo docker volume rm local_keosd_volume
-    sudo docker volume create local_keosd_volume
-    sudo docker run --rm --name local_keosd --network eos_net -d -p 18900:8900 -v local_keosd_volume:/mnt/dev/data -v local_contract_volume:/mnt/dev/contracts:rw eosio/eos:latest  /bin/bash -c "keosd --wallet-dir /mnt/dev/data --http-server-address=0.0.0.0:8900 --http-alias=localhost:8900 --http-alias=127.0.0.1:8900 --http-validate-host=false --access-control-allow-origin=*"
+    sudo -E docker stop local_keosd
+    sudo -E docker volume rm local_keosd_volume
+    sudo -E docker volume create local_keosd_volume
+    sudo -E docker run --rm --name local_keosd --network eos_net -d -p 18900:8900 -v local_keosd_volume:/mnt/dev/data -v local_contract_volume:/mnt/dev/contracts:rw eosio/eos:latest  /bin/bash -c "keosd --wallet-dir /mnt/dev/data --http-server-address=0.0.0.0:8900 --http-alias=localhost:8900 --http-alias=127.0.0.1:8900 --http-validate-host=false --access-control-allow-origin=*"
 
     echo `pwd` > ~/.local_eos
     export LOCAL_EOS=`cat ~/.local_eos`
