@@ -1,5 +1,8 @@
 #!/bin/sh
 
+rm -rf docker_eos/deploy
+mkdir -p docker_eos/deploy
+
 for TOKEN in IQ_TOKEN \
              OCT_TOKEN \
              CET_TOKEN \
@@ -23,18 +26,18 @@ for TOKEN in IQ_TOKEN \
 do
 export EOSIOCPP_CFLAGS="-DTOKEN_INDEX=${TOKEN}"
 echo $EOSIOCPP_CFLAGS
-eosiocpp -o deploy/eosdaq_${TOKEN}.wast $1/eosdaq/eosdaq.cpp
+eosiocpp -o docker_eos/deploy/eosdaq_${TOKEN}.wast smartcontract/eosdaq/eosdaq.cpp
 done
 export EOSIOCPP_CFLAGS="-DTOKEN_INDEX=IQ_TOKEN"
 
-cd $1/eosdaq
+cd smartcontract/eosdaq
 eosiocpp -g eosdaq.abi eosdaq.cpp
 cd -
-cp -fp $1/eosdaq/eosdaq.abi deploy/.
+cp -fp smartcontract/eosdaq/eosdaq.abi docker_eos/deploy/.
 
-eosiocpp -o deploy/eosdaq_acnt.wast $1/eosdaq_acnt/eosdaq_acnt.cpp
-cd $1/eosdaq_acnt
+eosiocpp -o docker_eos/deploy/eosdaq_acnt.wast smartcontract/eosdaq_acnt/eosdaq_acnt.cpp
+cd smartcontract/eosdaq_acnt
 eosiocpp -g eosdaq_acnt.abi eosdaq_acnt.cpp
 cd -
-cp -fp $1/eosdaq_acnt/eosdaq_acnt.abi deploy/.
+cp -fp smartcontract/eosdaq_acnt/eosdaq_acnt.abi docker_eos/deploy/.
 

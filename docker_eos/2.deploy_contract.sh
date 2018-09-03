@@ -1,7 +1,3 @@
-rm -rf deploy
-mkdir -p deploy
-build.sh `pwd`/../smartcontract
-
 sudo -E docker stop local_keosd
 sudo -E docker volume rm local_contract_volume
 sudo -E docker volume create local_contract_volume
