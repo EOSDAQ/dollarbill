@@ -42,6 +42,7 @@ if [[ "$@" == "new" ]]; then
         cleos wallet import -n wall$N --private-key `prikey key${N}`
     done
 else
+    sudo -E docker run --rm --name local_keosd --network eos_net -d -p 18900:8900 -v local_keosd_volume:/mnt/dev/data -v local_contract_volume:/mnt/dev/contracts:rw eosio/eos:latest  /bin/bash -c "keosd --wallet-dir /mnt/dev/data --http-server-address=0.0.0.0:8900 --http-alias=localhost:8900 --http-alias=127.0.0.1:8900 --http-validate-host=false --access-control-allow-origin=*"
     cleos wallet unlock --password `openwallet master`
     for N in {1..$KEYCOUNT}
     do
