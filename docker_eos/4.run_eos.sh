@@ -1,8 +1,22 @@
 #!/bin/zsh
 
 filters='--filter-on eosdaqoooooo:transfer: --filter-on eosdaqooooo1:transfer: --filter-on eosdaqooooo2:transfer: --filter-on eosdaqooooo3:transfer: --filter-on eosdaqooooo4:transfer: --filter-on eosdaqooooo5:transfer: --filter-on eosdaqoooo1o:transfer: --filter-on eosdaqoooo11:transfer: --filter-on eosdaqoooo12:transfer: --filter-on eosdaqoooo13:transfer: --filter-on eosdaqoooo14:transfer: --filter-on eosdaqoooo15:transfer: --filter-on eosdaqoooo2o:transfer: --filter-on eosdaqoooo21:transfer: --filter-on eosdaqoooo22:transfer: --filter-on eosdaqoooo23:transfer: --filter-on eosdaqoooo24:transfer: --filter-on eosdaqoooo25:transfer: --filter-on eosdaqoooo3o:transfer: --filter-on eosdaqoooo31:transfer:'
-sudo -E docker run --rm --name local_nodeos --network eos_net -d -p 18888:8888 -p 19876:9876 -v local_nodeos_volume:/mnt/dev/config eosio/eos:latest  /bin/bash -c "nodeos -e -p eosio --plugin eosio::producer_plugin --plugin eosio::history_plugin --plugin eosio::chain_api_plugin --plugin eosio::history_api_plugin --plugin eosio::http_plugin -d /mnt/dev/data --config-dir /mnt/dev/config --http-server-address=0.0.0.0:8888 --http-validate-host=false --access-control-allow-origin=* --contracts-console $filters"
+#sudo -E docker run --rm --name local_nodeos --network eos_net -d -p 18888:8888 -p 19876:9876 -v local_nodeos_volume:/mnt/dev/config eosio/eos:latest  /bin/bash -c "nodeos -e -p eosio --plugin eosio::producer_plugin --plugin eosio::history_plugin --plugin eosio::chain_api_plugin --plugin eosio::history_api_plugin --plugin eosio::http_plugin -d /mnt/dev/data --config-dir /mnt/dev/config --http-server-address=0.0.0.0:8888 --http-validate-host=false --access-control-allow-origin=* --contracts-console $filters"
+sudo -E docker run --rm --name local_nodeos --network eos_net -d -p 18888:8888 -p 19876:9876 -v local_nodeos_volume:/mnt/dev/config eosio/eos:latest  /bin/bash -c "nodeos -e -p eosio --plugin eosio::net_api_plugin --plugin eosio::chain_api_plugin --plugin eosio::history_api_plugin --plugin eosio::http_plugin -d /mnt/dev/data --config-dir /mnt/dev/config --http-server-address=0.0.0.0:8888 --http-validate-host=false --access-control-allow-origin=* --contracts-console $filters"
 
+# main_net
+#  nodeos -e -p eosio 
+#  --plugin eosio::chain_api_plugin 
+#  --plugin eosio::net_api_plugin 
+#  --plugin eosio::history_api_plugin 
+#  --plugin eosio::http_plugin 
+#  --http-server-address=0.0.0.0:18888 
+#  --http-validate-host=false 
+#  --access-control-allow-origin=* 
+#  --hard-replay 
+#  --contracts-console $filters  
+#  --wasm-runtime wavm
+#  
 . ./3.eos_keys.sh $1
 
 KEYCOUNT=80

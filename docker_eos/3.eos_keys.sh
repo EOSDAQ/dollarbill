@@ -17,6 +17,11 @@ prikey() {
     grep Private ${LOCAL_EOS}/.$1 | sed 's/Private key: //g' 
 }
 
+userkey() {
+    pub=`cleos get account $1 | grep owner | awk '{print $4}'`
+    grep -B 1 -n $pub .key*
+}
+
 if [[ "$@" == "new" ]]; then
     echo "generation new wallet&key"
 
