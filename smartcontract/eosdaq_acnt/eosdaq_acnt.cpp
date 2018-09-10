@@ -83,7 +83,7 @@ class eosdaq_acnt : public eosio::contract {
           action(
             permission_level{ _self, N(active) },
             to, N(triggerorder),
-            std::make_tuple(true, from, to, quantity, price)
+            std::make_tuple(true, _self, from, to, quantity, price)
           ).send();
       #ifdef LOG
          eosio::print("check -> trigger: true action sent\n");
@@ -98,7 +98,7 @@ class eosdaq_acnt : public eosio::contract {
           action(
             permission_level{ _self, N(active) },
             to, N(triggerorder),
-            std::make_tuple(false, from, to, quantity, price)
+            std::make_tuple(false, _self, from, to, quantity, price)
           ).send();
       #ifdef LOG
          eosio::print("check -> trigger: false action sent\n");
